@@ -20,13 +20,17 @@ export const useAadarshStrategy = (symbol: string = "bitcoin") => {
           throw new Error('Failed to fetch price data');
         }
         const data = await response.json();
-        return data.map((item: number[]) => ({
-          timestamp: item[0],
-          open: item[1],
-          high: item[2],
-          low: item[3],
-          close: item[4]
-        }));
+        
+        // Sort and format the data
+        return data
+          .map((item: number[]) => ({
+            timestamp: item[0],
+            open: item[1],
+            high: item[2],
+            low: item[3],
+            close: item[4]
+          }))
+          .sort((a, b) => a.timestamp - b.timestamp); // Ensure data is sorted
       } catch (error) {
         console.error('Error fetching price data:', error);
         return [];
