@@ -3,7 +3,8 @@ import { useEffect, useRef } from 'react';
 
 interface TradingViewChartProps {
   data: Array<{
-    time: string;
+    timestamp?: number;
+    time?: string;
     open: number;
     high: number;
     low: number;
@@ -22,7 +23,22 @@ export const TradingViewChart = ({ data, colors = {} }: TradingViewChartProps) =
   const chartContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (!chartContainerRef.current) return;
+    if (!chartContainerRef.current || !data.length) return;
+
+    // Sort data by timestamp/time before formatting
+    const sortedData = [...data].sort((a, b) => {
+      const timeA = a.timestamp || new Date(a.time || '').getTime();
+      const timeB = b.timestamp || new Date(b.time || '').getTime();
+      return timeA - timeB;
+    });
+
+    const formattedData = sortedData.map(item => ({
+      time: item.timestamp ? item.timestamp / 1000 : new Date(item.time || '').getTime() / 1000,
+      open: item.open,
+      high: item.high,
+      low: item.low,
+      close: item.close
+    }));
 
     const chart = createChart(chartContainerRef.current, {
       layout: {
@@ -35,6 +51,10 @@ export const TradingViewChart = ({ data, colors = {} }: TradingViewChartProps) =
       },
       width: chartContainerRef.current.clientWidth,
       height: 400,
+      timeScale: {
+        timeVisible: true,
+        secondsVisible: false,
+      },
     });
 
     const candlestickSeries = chart.addCandlestickSeries({
@@ -45,7 +65,7 @@ export const TradingViewChart = ({ data, colors = {} }: TradingViewChartProps) =
       wickDownColor: '#ef5350',
     });
 
-    candlestickSeries.setData(data);
+    candlestickSeries.setData(formattedData);
 
     const handleResize = () => {
       if (chartContainerRef.current) {

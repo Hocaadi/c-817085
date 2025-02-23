@@ -8,11 +8,15 @@ const CryptoChart = () => {
   const { signals, isLoading, priceData } = useAadarshStrategy();
   const [showDebug, setShowDebug] = useState(false);
 
-  useEffect(() => {
-    if (selectedStrategy?.id === 'aadarsh-bull' && signals) {
-      console.log('Strategy Signals:', signals);
-    }
-  }, [selectedStrategy, signals]);
+  if (isLoading || !priceData) {
+    return (
+      <div className="glass-card p-6 rounded-lg mb-8 animate-fade-in">
+        <div className="h-[400px] flex items-center justify-center">
+          <span className="text-muted-foreground">Loading chart data...</span>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="glass-card p-6 rounded-lg mb-8 animate-fade-in">
@@ -44,10 +48,6 @@ const CryptoChart = () => {
             <span>Price Data Points:</span>
             <span>{priceData?.length || 0}</span>
           </div>
-          <div className="flex justify-between mb-2">
-            <span>Signals Available:</span>
-            <span>{signals ? '✅' : '❌'}</span>
-          </div>
           {signals && (
             <>
               <div className="flex justify-between mb-2">
@@ -57,17 +57,6 @@ const CryptoChart = () => {
               <div className="flex justify-between mb-2">
                 <span>Sell Signal:</span>
                 <span>{signals.sellSignal ? '✅' : '❌'}</span>
-              </div>
-              <div className="mt-2 border-t border-secondary/20 pt-2">
-                <div className="font-bold mb-1">Raw Data:</div>
-                <pre className="text-xs overflow-auto max-h-40">
-                  {JSON.stringify({
-                    selectedStrategy: selectedStrategy?.config,
-                    signals,
-                    latestPrice: priceData?.[priceData.length - 1],
-                    indicators: selectedStrategy?.indicators
-                  }, null, 2)}
-                </pre>
               </div>
             </>
           )}
@@ -112,7 +101,7 @@ const CryptoChart = () => {
 
       <div className="h-[400px] w-full">
         <TradingViewChart 
-          data={priceData}
+          data={priceData || []}
           colors={{
             backgroundColor: '#141413',
             textColor: '#DDD',

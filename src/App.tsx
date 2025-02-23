@@ -11,7 +11,15 @@ import LoginPage from '@/pages/LoginPage';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import { AuthProvider } from '@/contexts/AuthContext';
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      refetchOnWindowFocus: false, // Disable automatic refetch on window focus
+      retry: 1, // Only retry failed requests once by default
+      staleTime: 30000, // Consider data fresh for 30 seconds
+    },
+  },
+});
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
@@ -23,7 +31,11 @@ const App = () => (
           <Routes>
             <Route path="/" element={<Layout />}>
               <Route index element={<LandingPage />} />
-              <Route path="dashboard" element={<DashboardPage />} />
+              <Route path="dashboard" element={
+                <ProtectedRoute>
+                  <DashboardPage />
+                </ProtectedRoute>
+              } />
               <Route path="trading" element={
                 <ProtectedRoute>
                   <TradingPage />

@@ -1,14 +1,15 @@
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { LogIn, LogOut } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
 
 const Layout = () => {
   const location = useLocation();
   const navigate = useNavigate();
+  const { user, logout } = useAuth();
   const isLandingPage = location.pathname === '/';
-  const isAuthenticated = localStorage.getItem('isAuthenticated') === 'true';
 
   const handleLogout = () => {
-    localStorage.removeItem('isAuthenticated');
+    logout();
     navigate('/');
   };
 
@@ -27,7 +28,7 @@ const Layout = () => {
                   to="/dashboard" 
                   className="text-sm hover:text-primary transition-colors"
                 >
-                  Crypto Data
+                  Dashboard
                 </Link>
                 <Link 
                   to="/trading" 
@@ -37,8 +38,9 @@ const Layout = () => {
                 </Link>
               </div>
             </div>
+            
             <div>
-              {isAuthenticated ? (
+              {user ? (
                 <button
                   onClick={handleLogout}
                   className="flex items-center space-x-2 text-sm hover:text-primary transition-colors"

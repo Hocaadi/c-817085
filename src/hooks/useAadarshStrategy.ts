@@ -2,29 +2,41 @@ import { useQuery } from "@tanstack/react-query";
 
 interface PriceData {
   timestamp: number;
-  close: number;
+  open: number;
   high: number;
   low: number;
-  open: number;
+  close: number;
 }
 
 export const useAadarshStrategy = (symbol: string = "bitcoin") => {
-  const { data: priceData } = useQuery({
+  const { data: priceData, isLoading } = useQuery({
     queryKey: ['cryptoPrices', symbol],
     queryFn: async () => {
-      const response = await fetch(
-        `https://api.coingecko.com/api/v3/coins/${symbol}/ohlc?vs_currency=usd&days=30`
-      );
-      const data = await response.json();
-      return data.map((item: number[]) => ({
-        timestamp: item[0],
-        open: item[1],
-        high: item[2],
-        low: item[3],
-        close: item[4]
-      }));
+      try {
+        const response = await fetch(
+          `/api/coingecko/coins/${symbol}/ohlc?vs_currency=usd&days=30`
+        );
+        if (!response.ok) {
+          throw new Error('Failed to fetch price data');
+        }
+        const data = await response.json();
+        return data.map((item: number[]) => ({
+          timestamp: item[0],
+          open: item[1],
+          high: item[2],
+          low: item[3],
+          close: item[4]
+        }));
+      } catch (error) {
+        console.error('Error fetching price data:', error);
+        return [];
+      }
     },
-    refetchInterval: 60000 // Refresh every minute
+    refetchInterval: 60000, // Refresh every minute
+    staleTime: 30000, // Consider data fresh for 30 seconds
+    cacheTime: 3600000, // Cache for 1 hour
+    retry: 3, // Retry failed requests 3 times
+    retryDelay: 1000, // Wait 1 second between retries
   });
 
   const calculateATR = (period: number, prices: PriceData[]) => {
@@ -95,8 +107,8 @@ export const useAadarshStrategy = (symbol: string = "bitcoin") => {
   };
 
   return {
-    signals: getSignals(),
-    isLoading: !priceData,
+    signals: priceData ? getSignals() : null,
+    isLoading,
     priceData,
   };
 }; 
