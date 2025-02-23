@@ -1,85 +1,69 @@
-import { createChart, ColorType } from 'lightweight-charts';
 import { useEffect, useRef } from 'react';
 
 interface TradingViewChartProps {
-  data: Array<{
-    timestamp?: number;
-    time?: string;
-    open: number;
-    high: number;
-    low: number;
-    close: number;
-  }>;
-  colors?: {
-    backgroundColor?: string;
-    lineColor?: string;
-    textColor?: string;
-    areaTopColor?: string;
-    areaBottomColor?: string;
-  };
+  symbol?: string;
+  theme?: 'light' | 'dark';
 }
 
-export const TradingViewChart = ({ data, colors = {} }: TradingViewChartProps) => {
-  const chartContainerRef = useRef<HTMLDivElement>(null);
+declare global {
+  interface Window {
+    TradingView: any;
+  }
+}
+
+export const TradingViewChart = ({ 
+  symbol = "BTCUSD", 
+  theme = "dark" 
+}: TradingViewChartProps) => {
+  const container = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (!chartContainerRef.current || !data.length) return;
-
-    // Sort data by timestamp/time before formatting
-    const sortedData = [...data].sort((a, b) => {
-      const timeA = a.timestamp || new Date(a.time || '').getTime();
-      const timeB = b.timestamp || new Date(b.time || '').getTime();
-      return timeA - timeB;
-    });
-
-    const formattedData = sortedData.map(item => ({
-      time: item.timestamp ? item.timestamp / 1000 : new Date(item.time || '').getTime() / 1000,
-      open: item.open,
-      high: item.high,
-      low: item.low,
-      close: item.close
-    }));
-
-    const chart = createChart(chartContainerRef.current, {
-      layout: {
-        background: { type: ColorType.Solid, color: colors.backgroundColor || '#141413' },
-        textColor: colors.textColor || '#DDD',
-      },
-      grid: {
-        vertLines: { color: '#2B2B2B' },
-        horzLines: { color: '#2B2B2B' },
-      },
-      width: chartContainerRef.current.clientWidth,
-      height: 400,
-      timeScale: {
-        timeVisible: true,
-        secondsVisible: false,
-      },
-    });
-
-    const candlestickSeries = chart.addCandlestickSeries({
-      upColor: '#26a69a',
-      downColor: '#ef5350',
-      borderVisible: false,
-      wickUpColor: '#26a69a',
-      wickDownColor: '#ef5350',
-    });
-
-    candlestickSeries.setData(formattedData);
-
-    const handleResize = () => {
-      if (chartContainerRef.current) {
-        chart.applyOptions({ width: chartContainerRef.current.clientWidth });
+    const script = document.createElement('script');
+    script.src = 'https://s3.tradingview.com/tv.js';
+    script.async = true;
+    script.onload = () => {
+      if (container.current && window.TradingView) {
+        new window.TradingView.widget({
+          container_id: container.current.id,
+          symbol: `BINANCE:${symbol}`,
+          interval: '30',
+          timezone: 'exchange',
+          theme: theme,
+          style: '1',
+          locale: 'en',
+          toolbar_bg: '#f1f3f6',
+          enable_publishing: false,
+          hide_side_toolbar: false,
+          allow_symbol_change: true,
+          save_image: false,
+          height: 400,
+          width: '100%',
+          studies: [
+            'RSI@tv-basicstudies',
+            'MASimple@tv-basicstudies',
+            'MACD@tv-basicstudies'
+          ],
+          show_popup_button: true,
+          popup_width: '1000',
+          popup_height: '650',
+        });
       }
     };
-
-    window.addEventListener('resize', handleResize);
+    document.head.appendChild(script);
 
     return () => {
-      window.removeEventListener('resize', handleResize);
-      chart.remove();
+      if (container.current) {
+        container.current.innerHTML = '';
+      }
+      document.head.removeChild(script);
     };
-  }, [data, colors]);
+  }, [symbol, theme]);
 
-  return <div ref={chartContainerRef} className="w-full h-[400px]" />;
+  return (
+    <div 
+      id="tradingview_widget" 
+      ref={container} 
+      className="tradingview-widget-container"
+    />
+  );
 }; 

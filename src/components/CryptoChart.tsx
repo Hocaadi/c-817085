@@ -1,22 +1,12 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { TradingViewChart } from './TradingViewChart';
 import StrategySelector, { Strategy } from './StrategySelector';
 import { useAadarshStrategy } from '@/hooks/useAadarshStrategy';
 
 const CryptoChart = () => {
   const [selectedStrategy, setSelectedStrategy] = useState<Strategy | null>(null);
-  const { signals, isLoading, priceData } = useAadarshStrategy();
+  const { signals, isLoading } = useAadarshStrategy();
   const [showDebug, setShowDebug] = useState(false);
-
-  if (isLoading || !priceData) {
-    return (
-      <div className="glass-card p-6 rounded-lg mb-8 animate-fade-in">
-        <div className="h-[400px] flex items-center justify-center">
-          <span className="text-muted-foreground">Loading chart data...</span>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="glass-card p-6 rounded-lg mb-8 animate-fade-in">
@@ -32,40 +22,10 @@ const CryptoChart = () => {
           <StrategySelector onStrategyChange={setSelectedStrategy} />
         </div>
       </div>
-      
-      {/* Debug Panel */}
-      {showDebug && (
-        <div className="mb-4 p-4 bg-secondary/10 rounded-md text-sm font-mono">
-          <div className="flex justify-between mb-2">
-            <span>Strategy Active:</span>
-            <span>{selectedStrategy?.id === 'aadarsh-bull' ? '✅' : '❌'}</span>
-          </div>
-          <div className="flex justify-between mb-2">
-            <span>Data Loading:</span>
-            <span>{isLoading ? '⏳' : '✅'}</span>
-          </div>
-          <div className="flex justify-between mb-2">
-            <span>Price Data Points:</span>
-            <span>{priceData?.length || 0}</span>
-          </div>
-          {signals && (
-            <>
-              <div className="flex justify-between mb-2">
-                <span>Buy Signal:</span>
-                <span>{signals.buySignal ? '✅' : '❌'}</span>
-              </div>
-              <div className="flex justify-between mb-2">
-                <span>Sell Signal:</span>
-                <span>{signals.sellSignal ? '✅' : '❌'}</span>
-              </div>
-            </>
-          )}
-        </div>
-      )}
 
-      {/* Strategy Info */}
-      {selectedStrategy?.id === 'aadarsh-bull' && signals && (
-        <div className="strategy-info">
+      {/* Strategy Info Panel */}
+      {selectedStrategy?.id === 'aadarsh-bull' && signals && showDebug && (
+        <div className="strategy-info mb-4 p-4 bg-secondary/10 rounded-lg">
           <h3 className="text-sm font-medium mb-2">{selectedStrategy.name}</h3>
           <p className="text-sm text-muted-foreground">{selectedStrategy.description}</p>
           <div className="flex flex-col gap-2 mt-4">
@@ -100,13 +60,7 @@ const CryptoChart = () => {
       )}
 
       <div className="h-[400px] w-full">
-        <TradingViewChart 
-          data={priceData || []}
-          colors={{
-            backgroundColor: '#141413',
-            textColor: '#DDD',
-          }}
-        />
+        <TradingViewChart symbol="BTCUSDT" theme="dark" />
       </div>
     </div>
   );

@@ -13,16 +13,23 @@ export const useAadarshStrategy = (symbol: string = "bitcoin") => {
     queryKey: ['cryptoPrices', symbol],
     queryFn: async () => {
       try {
-        const response = await fetch(
-          `/api/coingecko/coins/${symbol}/ohlc?vs_currency=usd&days=30`
-        );
-        if (!response.ok) {
+        // Fetch both OHLC and current price data
+        const [ohlcResponse, currentPriceResponse] = await Promise.all([
+          fetch(`/api/coingecko/coins/${symbol}/ohlc?vs_currency=usd&days=30`),
+          fetch(`/api/coingecko/simple/price?ids=${symbol}&vs_currencies=usd&include_24hr_change=true`)
+        ]);
+
+        if (!ohlcResponse.ok || !currentPriceResponse.ok) {
           throw new Error('Failed to fetch price data');
         }
-        const data = await response.json();
-        
-        // Sort and format the data
-        return data
+
+        const [ohlcData, currentPrice] = await Promise.all([
+          ohlcResponse.json(),
+          currentPriceResponse.json()
+        ]);
+
+        // Format and sort historical data
+        const historicalData = ohlcData
           .map((item: number[]) => ({
             timestamp: item[0],
             open: item[1],
@@ -30,17 +37,33 @@ export const useAadarshStrategy = (symbol: string = "bitcoin") => {
             low: item[3],
             close: item[4]
           }))
-          .sort((a, b) => a.timestamp - b.timestamp); // Ensure data is sorted
+          .sort((a: any, b: any) => a.timestamp - b.timestamp);
+
+        // Add current price as the latest candle
+        const lastCandle = historicalData[historicalData.length - 1];
+        const currentTimestamp = Date.now();
+        
+        if (currentTimestamp - lastCandle.timestamp >= 60000) { // If last candle is older than 1 minute
+          historicalData.push({
+            timestamp: currentTimestamp,
+            open: lastCandle.close,
+            high: Math.max(lastCandle.close, currentPrice[symbol].usd),
+            low: Math.min(lastCandle.close, currentPrice[symbol].usd),
+            close: currentPrice[symbol].usd
+          });
+        }
+
+        return historicalData;
       } catch (error) {
         console.error('Error fetching price data:', error);
         return [];
       }
     },
-    refetchInterval: 60000, // Refresh every minute
-    staleTime: 30000, // Consider data fresh for 30 seconds
+    refetchInterval: 10000, // Refresh every 10 seconds
+    staleTime: 5000, // Consider data fresh for 5 seconds
     cacheTime: 3600000, // Cache for 1 hour
-    retry: 3, // Retry failed requests 3 times
-    retryDelay: 1000, // Wait 1 second between retries
+    retry: 3,
+    retryDelay: 1000,
   });
 
   const calculateATR = (period: number, prices: PriceData[]) => {
