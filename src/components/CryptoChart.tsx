@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import TradingViewWidget from 'react-tradingview-widget';
+import { TradingViewChart } from './TradingViewChart';
 import StrategySelector, { Strategy } from './StrategySelector';
 import { useAadarshStrategy } from '@/hooks/useAadarshStrategy';
 
@@ -111,21 +111,12 @@ const CryptoChart = () => {
       )}
 
       <div className="h-[400px] w-full">
-        <TradingViewWidget
-          symbol="BINANCE:BTCUSDT"
-          theme="dark"
-          locale="en"
-          autosize
-          hide_side_toolbar={false}
-          allow_symbol_change={true}
-          interval="D"
-          toolbar_bg="#141413"
-          enable_publishing={false}
-          hide_top_toolbar={false}
-          save_image={false}
-          studies={selectedStrategy?.indicators || []}
-          style="3"
-          withdateranges={true}
+        <TradingViewChart 
+          data={priceData}
+          colors={{
+            backgroundColor: '#141413',
+            textColor: '#DDD',
+          }}
         />
       </div>
     </div>

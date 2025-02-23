@@ -1,11 +1,19 @@
 import { useState } from 'react';
 import StrategySelector, { Strategy } from '@/components/StrategySelector';
 import { useAadarshStrategy } from '@/hooks/useAadarshStrategy';
+import { TradingViewChart } from '@/components/TradingViewChart';
 
 const TradingPage = () => {
   const [selectedStrategy, setSelectedStrategy] = useState<Strategy | null>(null);
   const { signals, isLoading } = useAadarshStrategy();
   
+  // Sample data - replace with your actual data source
+  const sampleData = [
+    { time: '2024-02-22', open: 54.62, high: 55.50, low: 54.52, close: 54.90 },
+    { time: '2024-02-23', open: 55.08, high: 55.27, low: 54.61, close: 54.98 },
+    // Add more data points...
+  ];
+
   return (
     <div className="container mx-auto p-6">
       <div className="flex items-center justify-between mb-8">
@@ -17,7 +25,15 @@ const TradingPage = () => {
         {/* Trading Chart Section */}
         <div className="lg:col-span-2 glass-card p-6 rounded-lg">
           <h2 className="text-xl font-semibold mb-4">Chart</h2>
-          {/* Add your TradingView widget here */}
+          <div className="rounded-lg border bg-card p-4">
+            <TradingViewChart 
+              data={sampleData}
+              colors={{
+                backgroundColor: '#141413',
+                textColor: '#DDD',
+              }}
+            />
+          </div>
         </div>
 
         {/* Trading Panel */}
