@@ -19,7 +19,7 @@ const App = () => (
       <AuthProvider>
         <Toaster />
         <Sonner />
-        <BrowserRouter basename="/{repository-name}">
+        <BrowserRouter basename="/c-817085">
           <Routes>
             <Route path="/" element={<Layout />}>
               <Route index element={<LandingPage />} />
