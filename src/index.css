@@ -3,10 +3,16 @@
 @tailwind utilities;
 
 @layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+  
   body {
     @apply bg-background text-foreground antialiased;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
   }
-}
+}s
 
 .glass-card {
   @apply bg-secondary bg-opacity-20 backdrop-blur-lg border border-white border-opacity-10 shadow-lg;
@@ -14,6 +20,12 @@
 
 .crypto-chart {
   @apply h-[300px] w-full;
+}
+
+/* Add smooth transition for elements */
+.animate-fade-in {
+  animation: fade-in 0.5s ease-out;
+  will-change: opacity, transform;
 }
 
 @keyframes pulse-subtle {
@@ -27,4 +39,59 @@
 
 .animate-pulse-subtle {
   animation: pulse-subtle 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* Add smooth scrollbar styling */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(58, 57, 53, 0.1);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(137, 137, 222, 0.3);
+  border-radius: 4px;
+  transition: background 0.2s ease;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(137, 137, 222, 0.5);
+}
+
+/* Add these to your existing styles */
+.strategy-badge {
+  @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
+}
+
+.strategy-info {
+  @apply bg-secondary/20 p-4 rounded-md mb-4 animate-fade-in;
+}
+
+/* Add these to your existing styles */
+.nav-link {
+  @apply text-sm hover:text-primary transition-colors;
+}
+
+.nav-link.active {
+  @apply text-primary;
+}
+
+/* Trading page specific styles */
+.trade-input {
+  @apply w-full mt-1 p-2 rounded-md bg-secondary/20 border border-secondary;
+}
+
+.trade-button {
+  @apply w-full py-2 px-4 rounded-md transition-colors;
+}
+
+.trade-button-active {
+  @apply bg-success hover:bg-success/90;
+}
+
+.trade-button-inactive {
+  @apply bg-secondary hover:bg-secondary/90;
 }
