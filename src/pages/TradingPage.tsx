@@ -1,103 +1,180 @@
 import { useState } from 'react';
-import StrategySelector, { Strategy } from '@/components/StrategySelector';
-import { useAadarshStrategy } from '@/hooks/useAadarshStrategy';
-import { TradingViewChart } from '@/components/TradingViewChart';
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { ArrowUpCircle, ArrowDownCircle, Activity, DollarSign, Percent, Timer } from 'lucide-react';
+
+interface Trade {
+  id: string;
+  strategy: string;
+  type: 'LONG' | 'SHORT';
+  entryPrice: number;
+  exitPrice: number | null;
+  quantity: number;
+  pnl: number | null;
+  status: 'ACTIVE' | 'CLOSED';
+  timestamp: string;
+}
 
 const TradingPage = () => {
-  const [selectedStrategy, setSelectedStrategy] = useState<Strategy | null>(null);
-  const { signals, isLoading } = useAadarshStrategy();
-  
-  // Sample data - replace with your actual data source
-  const sampleData = [
-    { time: '2024-02-22', open: 54.62, high: 55.50, low: 54.52, close: 54.90 },
-    { time: '2024-02-23', open: 55.08, high: 55.27, low: 54.61, close: 54.98 },
-    // Add more data points...
-  ];
+  const [selectedStrategy, setSelectedStrategy] = useState<string>('');
+  const [trades, setTrades] = useState<Trade[]>([]); // This will store your trades
 
   return (
-    <div className="container mx-auto p-6">
-      <div className="flex items-center justify-between mb-8">
+    <div className="container mx-auto p-6 space-y-6">
+      <div className="flex justify-between items-center">
         <h1 className="text-2xl font-bold">Trading Terminal</h1>
-        <StrategySelector onStrategyChange={setSelectedStrategy} />
+        <Select value={selectedStrategy} onValueChange={setSelectedStrategy}>
+          <SelectTrigger className="w-[200px]">
+            <SelectValue placeholder="Select Strategy" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="ma_crossover">MA Crossover</SelectItem>
+            <SelectItem value="rsi_divergence">RSI Divergence</SelectItem>
+            <SelectItem value="breakout">Breakout Strategy</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Trading Chart Section */}
-        <div className="lg:col-span-2 glass-card p-6 rounded-lg">
-          <h2 className="text-xl font-semibold mb-4">Chart</h2>
-          <div className="rounded-lg border bg-card p-4">
-            <TradingViewChart 
-              data={sampleData}
-              colors={{
-                backgroundColor: '#141413',
-                textColor: '#DDD',
-              }}
-            />
-          </div>
-        </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Strategy Performance Card */}
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Strategy Performance
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">+24.5%</div>
+            <p className="text-xs text-muted-foreground">
+              Last 30 days
+            </p>
+          </CardContent>
+        </Card>
 
-        {/* Trading Panel */}
-        <div className="glass-card p-6 rounded-lg">
-          <h2 className="text-xl font-semibold mb-4">Trading Panel</h2>
-          
-          {selectedStrategy && signals && (
-            <div className="space-y-6">
-              {/* Strategy Info */}
-              <div className="strategy-info">
-                <h3 className="font-medium">{selectedStrategy.name}</h3>
-                <p className="text-sm text-muted-foreground">{selectedStrategy.description}</p>
-              </div>
+        {/* Total Profit/Loss Card */}
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Total P&L
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-green-500">+$1,234.56</div>
+            <p className="text-xs text-muted-foreground">
+              All time
+            </p>
+          </CardContent>
+        </Card>
 
-              {/* Signal Indicator */}
-              <div className="p-4 rounded-lg bg-secondary/10">
-                <div className="flex justify-between items-center">
-                  <span>Signal:</span>
-                  <span className={`strategy-badge ${
-                    signals.buySignal 
-                      ? 'bg-success/20 text-success' 
-                      : 'bg-warning/20 text-warning'
-                  }`}>
-                    {signals.buySignal ? 'BUY' : 'WAIT'}
-                  </span>
-                </div>
-              </div>
+        {/* Active Trades Card */}
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Active Trades
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">3</div>
+            <p className="text-xs text-muted-foreground">
+              Currently running
+            </p>
+          </CardContent>
+        </Card>
 
-              {/* Trade Form */}
-              <form className="space-y-4">
-                <div>
-                  <label className="text-sm font-medium">Amount (USD)</label>
-                  <input 
-                    type="number" 
-                    className="w-full mt-1 p-2 rounded-md bg-secondary/20 border border-secondary"
-                    placeholder="Enter amount..."
-                  />
-                </div>
-                
-                <div>
-                  <label className="text-sm font-medium">Leverage</label>
-                  <select className="w-full mt-1 p-2 rounded-md bg-secondary/20 border border-secondary">
-                    <option>1x</option>
-                    <option>2x</option>
-                    <option>5x</option>
-                    <option>10x</option>
-                  </select>
-                </div>
-
-                <button 
-                  className={`w-full py-2 px-4 rounded-md ${
-                    signals.buySignal 
-                      ? 'bg-success hover:bg-success/90' 
-                      : 'bg-secondary hover:bg-secondary/90'
-                  }`}
-                  disabled={!signals.buySignal}
-                >
-                  Place Trade
-                </button>
-              </form>
-            </div>
-          )}
-        </div>
+        {/* Win Rate Card */}
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Win Rate
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">68%</div>
+            <p className="text-xs text-muted-foreground">
+              Based on closed trades
+            </p>
+          </CardContent>
+        </Card>
       </div>
+
+      {/* Active Trades Section */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Active Trades</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Strategy</TableHead>
+                <TableHead>Type</TableHead>
+                <TableHead>Entry Price</TableHead>
+                <TableHead>Current Price</TableHead>
+                <TableHead>Quantity</TableHead>
+                <TableHead>Unrealized P&L</TableHead>
+                <TableHead>Duration</TableHead>
+                <TableHead>Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              <TableRow>
+                <TableCell>MA Crossover</TableCell>
+                <TableCell>
+                  <Badge variant="success">LONG</Badge>
+                </TableCell>
+                <TableCell>$83,450</TableCell>
+                <TableCell>$83,616</TableCell>
+                <TableCell>0.1 BTC</TableCell>
+                <TableCell className="text-green-500">+$166</TableCell>
+                <TableCell>2h 15m</TableCell>
+                <TableCell>
+                  <Button variant="destructive" size="sm">Close Trade</Button>
+                </TableCell>
+              </TableRow>
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+
+      {/* Trade History Section */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Trade History</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Date</TableHead>
+                <TableHead>Strategy</TableHead>
+                <TableHead>Type</TableHead>
+                <TableHead>Entry/Exit</TableHead>
+                <TableHead>Quantity</TableHead>
+                <TableHead>Realized P&L</TableHead>
+                <TableHead>Status</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              <TableRow>
+                <TableCell>2024-01-28</TableCell>
+                <TableCell>RSI Divergence</TableCell>
+                <TableCell>
+                  <Badge variant="destructive">SHORT</Badge>
+                </TableCell>
+                <TableCell>$84,200 / $83,950</TableCell>
+                <TableCell>0.15 BTC</TableCell>
+                <TableCell className="text-green-500">+$375</TableCell>
+                <TableCell>
+                  <Badge>CLOSED</Badge>
+                </TableCell>
+              </TableRow>
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
     </div>
   );
 };
