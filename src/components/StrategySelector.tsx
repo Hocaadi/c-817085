@@ -1,4 +1,13 @@
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Check } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 export type Strategy = {
   id: string;
@@ -47,28 +56,49 @@ const strategies: Strategy[] = [
 ];
 
 interface StrategySelectorProps {
-  onStrategyChange: (strategy: Strategy) => void;
+  value: string;
+  onValueChange: (value: string) => void;
 }
 
-const StrategySelector = ({ onStrategyChange }: StrategySelectorProps) => {
+const StrategySelector = ({ value, onValueChange }: StrategySelectorProps) => {
   return (
-    <div className="flex items-center gap-4 mb-4">
-      <Select onValueChange={(value) => {
-        const strategy = strategies.find(s => s.id === value);
-        if (strategy) onStrategyChange(strategy);
-      }}>
-        <SelectTrigger className="w-[200px]">
-          <SelectValue placeholder="Select Strategy" />
-        </SelectTrigger>
-        <SelectContent>
-          {strategies.map((strategy) => (
-            <SelectItem key={strategy.id} value={strategy.id}>
-              {strategy.name}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-    </div>
+    <Select value={value} onValueChange={onValueChange}>
+      <SelectTrigger className="w-[240px] bg-secondary/10 border-secondary/20 hover:bg-secondary/20 transition-colors">
+        <SelectValue placeholder="Select Strategy" />
+      </SelectTrigger>
+      <SelectContent className="bg-background/95 backdrop-blur-sm border-secondary/20">
+        <SelectGroup>
+          <SelectLabel className="text-muted-foreground">Trading Strategies</SelectLabel>
+          <SelectItem 
+            value="rsi-divergence"
+            className="hover:bg-secondary/10 cursor-pointer focus:bg-secondary/20 rounded-sm"
+          >
+            <div className="flex items-center gap-2">
+              <div className="flex-1">RSI Divergence</div>
+              {value === "rsi-divergence" && <Check className="h-4 w-4 text-primary" />}
+            </div>
+          </SelectItem>
+          <SelectItem 
+            value="ma-crossover"
+            className="hover:bg-secondary/10 cursor-pointer focus:bg-secondary/20 rounded-sm"
+          >
+            <div className="flex items-center gap-2">
+              <div className="flex-1">MA Crossover</div>
+              {value === "ma-crossover" && <Check className="h-4 w-4 text-primary" />}
+            </div>
+          </SelectItem>
+          <SelectItem 
+            value="breakout"
+            className="hover:bg-secondary/10 cursor-pointer focus:bg-secondary/20 rounded-sm"
+          >
+            <div className="flex items-center gap-2">
+              <div className="flex-1">Breakout Strategy</div>
+              {value === "breakout" && <Check className="h-4 w-4 text-primary" />}
+            </div>
+          </SelectItem>
+        </SelectGroup>
+      </SelectContent>
+    </Select>
   );
 };
 
