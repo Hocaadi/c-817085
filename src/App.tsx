@@ -2,14 +2,17 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import Layout from '@/components/Layout';
 import DashboardPage from '@/pages/DashboardPage';
 import TradingPage from '@/pages/TradingPage';
 import LandingPage from '@/pages/LandingPage';
 import LoginPage from '@/pages/LoginPage';
 import ProtectedRoute from '@/components/ProtectedRoute';
-import { AuthProvider } from '@/contexts/AuthContext';
+import { ClerkProvider, useAuth } from "@clerk/clerk-react";
+
+// Define the key directly if environment variable isn't loading
+const CLERK_PUBLISHABLE_KEY = "pk_test_ZGVjaWRpbmctYnV6emFyZC0zLmNsZXJrLmFjY291bnRzLmRldiQ";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -21,33 +24,37 @@ const queryClient = new QueryClient({
   },
 });
 
-const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <AuthProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter basename="/c-817085">
-          <Routes>
-            <Route path="/" element={<Layout />}>
-              <Route index element={<LandingPage />} />
-              <Route path="dashboard" element={
-                <ProtectedRoute>
-                  <DashboardPage />
-                </ProtectedRoute>
-              } />
-              <Route path="trading" element={
-                <ProtectedRoute>
-                  <TradingPage />
-                </ProtectedRoute>
-              } />
-              <Route path="login" element={<LoginPage />} />
-            </Route>
-          </Routes>
-        </BrowserRouter>
-      </AuthProvider>
-    </TooltipProvider>
-  </QueryClientProvider>
-);
+const App = () => {
+  return (
+    <ClerkProvider publishableKey={CLERK_PUBLISHABLE_KEY}>
+      <QueryClientProvider client={queryClient}>
+        <TooltipProvider>
+          <Toaster />
+          <Sonner />
+          <BrowserRouter>
+            <Routes>
+              <Route path="/" element={<Layout />}>
+                <Route index element={<LandingPage />} />
+                <Route path="login/*" element={<LoginPage />} />
+                <Route path="register/*" element={<LoginPage />} />
+                <Route path="dashboard" element={
+                  <ProtectedRoute>
+                    <DashboardPage />
+                  </ProtectedRoute>
+                } />
+                <Route path="trading" element={
+                  <ProtectedRoute>
+                    <TradingPage />
+                  </ProtectedRoute>
+                } />
+                <Route path="*" element={<Navigate to="/" replace />} />
+              </Route>
+            </Routes>
+          </BrowserRouter>
+        </TooltipProvider>
+      </QueryClientProvider>
+    </ClerkProvider>
+  );
+};
 
 export default App;

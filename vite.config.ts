@@ -4,7 +4,7 @@ import react from "@vitejs/plugin-react"
 
 // https://vitejs.dev/config/
 export default defineConfig({
-  base: '/c-817085/',
+  base: '/',
   plugins: [react()],
   resolve: {
     alias: {
@@ -25,5 +25,6 @@ export default defineConfig({
         rewrite: (path) => path.replace(/^\/api\/coingecko/, ''),
       },
     }
-  }
+  },
+  envPrefix: 'VITE_',
 })

@@ -1,17 +1,13 @@
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { LogIn, LogOut } from 'lucide-react';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth, useUser, SignOutButton } from '@clerk/clerk-react';
 
 const Layout = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { user, logout } = useAuth();
+  const { isSignedIn } = useAuth();
+  const { user } = useUser();
   const isLandingPage = location.pathname === '/';
-
-  const handleLogout = () => {
-    logout();
-    navigate('/');
-  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -39,25 +35,22 @@ const Layout = () => {
               </div>
             </div>
             
-            <div>
-              {user ? (
-                <button
-                  onClick={handleLogout}
-                  className="flex items-center space-x-2 text-sm hover:text-primary transition-colors"
-                >
+            {isSignedIn ? (
+              <SignOutButton signOutCallback={() => navigate('/')}>
+                <button className="flex items-center space-x-2 text-sm hover:text-primary transition-colors">
                   <LogOut className="w-4 h-4" />
                   <span>Logout</span>
                 </button>
-              ) : (
-                <Link
-                  to="/login"
-                  className="flex items-center space-x-2 text-sm hover:text-primary transition-colors"
-                >
-                  <LogIn className="w-4 h-4" />
-                  <span>Login</span>
-                </Link>
-              )}
-            </div>
+              </SignOutButton>
+            ) : (
+              <Link
+                to="/login"
+                className="flex items-center space-x-2 text-sm hover:text-primary transition-colors"
+              >
+                <LogIn className="w-4 h-4" />
+                <span>Login</span>
+              </Link>
+            )}
           </div>
         </div>
       </nav>
