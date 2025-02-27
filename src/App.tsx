@@ -12,11 +12,10 @@ import UserProfilePage from '@/pages/UserProfilePage';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import { ClerkProvider } from "@clerk/clerk-react";
 
-// Ensure the key is available
-const CLERK_PUBLISHABLE_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
+const clerkPubKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
 
-if (!CLERK_PUBLISHABLE_KEY) {
-  throw new Error("Missing Clerk Publishable Key");
+if (!clerkPubKey) {
+  throw new Error("Missing Publishable Key")
 }
 
 const queryClient = new QueryClient({
@@ -31,16 +30,7 @@ const queryClient = new QueryClient({
 
 const App = () => {
   return (
-    <ClerkProvider 
-      publishableKey={CLERK_PUBLISHABLE_KEY}
-      appearance={{
-        baseTheme: undefined,
-        variables: {
-          colorPrimary: '#8989DE',
-          colorTextOnPrimaryBackground: '#FAFAF8',
-        }
-      }}
-    >
+    <ClerkProvider publishableKey={clerkPubKey}>
       <QueryClientProvider client={queryClient}>
         <TooltipProvider>
           <Toaster />
