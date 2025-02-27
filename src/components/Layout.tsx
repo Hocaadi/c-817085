@@ -36,8 +36,11 @@ const Layout = () => {
             </div>
             
             {isSignedIn ? (
-              <SignOutButton signOutCallback={() => navigate('/')}>
-                <button className="flex items-center space-x-2 text-sm hover:text-primary transition-colors">
+              <SignOutButton>
+                <button 
+                  onClick={() => navigate('/')}
+                  className="flex items-center space-x-2 text-sm hover:text-primary transition-colors"
+                >
                   <LogOut className="w-4 h-4" />
                   <span>Logout</span>
                 </button>
