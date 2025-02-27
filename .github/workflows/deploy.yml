@@ -5,29 +5,28 @@ on:
     branches:
       - main
 
-permissions:
-  contents: write
-
 jobs:
-  deploy:
+  build-and-deploy:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
-      
-      - name: Setup Node
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
           node-version: '18'
-          cache: 'npm'
-          
+
       - name: Install Dependencies
         run: npm install
-        
+
       - name: Build
         run: npm run build
-        
+        env:
+          VITE_CLERK_PUBLISHABLE_KEY: ${{ secrets.VITE_CLERK_PUBLISHABLE_KEY }}
+
       - name: Deploy
-        uses: JamesIves/github-pages-deploy-action@v4
+        uses: peaceiris/actions-gh-pages@v3
         with:
-          folder: dist
-          branch: gh-pages 
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./dist 

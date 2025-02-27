@@ -8,11 +8,16 @@ import DashboardPage from '@/pages/DashboardPage';
 import TradingPage from '@/pages/TradingPage';
 import LandingPage from '@/pages/LandingPage';
 import LoginPage from '@/pages/LoginPage';
+import UserProfilePage from '@/pages/UserProfilePage';
 import ProtectedRoute from '@/components/ProtectedRoute';
-import { ClerkProvider, useAuth } from "@clerk/clerk-react";
+import { ClerkProvider } from "@clerk/clerk-react";
 
-// Define the key directly if environment variable isn't loading
-const CLERK_PUBLISHABLE_KEY = "pk_test_ZGVjaWRpbmctYnV6emFyZC0zLmNsZXJrLmFjY291bnRzLmRldiQ";
+// Ensure the key is available
+const CLERK_PUBLISHABLE_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
+
+if (!CLERK_PUBLISHABLE_KEY) {
+  throw new Error("Missing Clerk Publishable Key");
+}
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -26,7 +31,16 @@ const queryClient = new QueryClient({
 
 const App = () => {
   return (
-    <ClerkProvider publishableKey={CLERK_PUBLISHABLE_KEY}>
+    <ClerkProvider 
+      publishableKey={CLERK_PUBLISHABLE_KEY}
+      appearance={{
+        baseTheme: undefined,
+        variables: {
+          colorPrimary: '#8989DE',
+          colorTextOnPrimaryBackground: '#FAFAF8',
+        }
+      }}
+    >
       <QueryClientProvider client={queryClient}>
         <TooltipProvider>
           <Toaster />
@@ -45,6 +59,11 @@ const App = () => {
                 <Route path="trading" element={
                   <ProtectedRoute>
                     <TradingPage />
+                  </ProtectedRoute>
+                } />
+                <Route path="profile" element={
+                  <ProtectedRoute>
+                    <UserProfilePage />
                   </ProtectedRoute>
                 } />
                 <Route path="*" element={<Navigate to="/" replace />} />
