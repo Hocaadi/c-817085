@@ -11,9 +11,9 @@ const LoginPage = () => {
         
         <SignIn 
           routing="path" 
-          path="/login"
-          redirectUrl="/"
-          afterSignInUrl="/"
+          path="/c-817085/login"
+          redirectUrl="/c-817085"
+          afterSignInUrl="/c-817085/dashboard"
           appearance={{
             elements: {
               rootBox: "w-full",

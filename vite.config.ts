@@ -24,7 +24,8 @@ export default defineConfig({
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/api\/coingecko/, ''),
       },
-    }
+    },
+    historyApiFallback: true,
   },
   envPrefix: 'VITE_',
 })
