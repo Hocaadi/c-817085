@@ -5,38 +5,61 @@ export class PositionManager {
   private positions: Map<string, Position> = new Map();
   private readonly maxDrawdown: number = 20; // 20%
   private readonly deltaClient: DeltaExchangeClient;
+  private isConnected: boolean = false;
 
   constructor(apiKey: string, apiSecret: string) {
     this.deltaClient = new DeltaExchangeClient(apiKey, apiSecret);
+    this.initializeConnection();
+  }
+
+  private async initializeConnection() {
+    try {
+      this.isConnected = await this.deltaClient.checkConnection();
+      if (!this.isConnected) {
+        console.error('Failed to connect to Delta Exchange API');
+      }
+    } catch (error) {
+      console.error('Error initializing Delta Exchange connection:', error);
+      this.isConnected = false;
+    }
   }
 
   async openPosition(request: OrderRequest): Promise<Position> {
-    // Check risk metrics before opening position
-    const metrics = this.calculateRiskMetrics();
-    if (metrics.currentDrawdown >= this.maxDrawdown) {
-      throw new Error('Max drawdown limit reached');
+    if (!this.isConnected) {
+      throw new Error('Not connected to Delta Exchange API');
     }
 
-    const order = await this.deltaClient.placeOrder(request);
-    const position: Position = {
-      id: order.id,
-      symbol: request.symbol,
-      side: request.side === 'BUY' ? 'LONG' : 'SHORT',
-      entryPrice: order.price,
-      quantity: request.quantity,
-      stopLoss: request.stopLoss ? {
-        price: request.stopLoss,
-        type: 'FIXED'
-      } : undefined,
-      takeProfit: request.takeProfit,
-      timestamp: Date.now(),
-      strategy: request.strategy,
-      pnl: 0,
-      status: 'OPEN'
-    };
+    try {
+      // Check risk metrics before opening position
+      const metrics = this.calculateRiskMetrics();
+      if (metrics.currentDrawdown >= this.maxDrawdown) {
+        throw new Error('Max drawdown limit reached');
+      }
 
-    this.positions.set(position.id, position);
-    return position;
+      const order = await this.deltaClient.placeOrder(request);
+      const position: Position = {
+        id: order.id,
+        symbol: request.symbol,
+        side: request.side === 'BUY' ? 'LONG' : 'SHORT',
+        entryPrice: order.price,
+        quantity: request.quantity,
+        stopLoss: request.stopLoss ? {
+          price: request.stopLoss,
+          type: 'FIXED'
+        } : undefined,
+        takeProfit: request.takeProfit,
+        timestamp: Date.now(),
+        strategy: request.strategy || 'unknown',
+        pnl: 0,
+        status: 'OPEN'
+      };
+
+      this.positions.set(position.id, position);
+      return position;
+    } catch (error) {
+      console.error('Error opening position:', error);
+      throw error;
+    }
   }
 
   async closePosition(positionId: string): Promise<void> {

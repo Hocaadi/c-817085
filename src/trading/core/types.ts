@@ -24,6 +24,7 @@ export interface OrderRequest {
   price?: number;
   stopLoss?: number;
   takeProfit?: number;
+  strategy?: string;
 }
 
 export interface RiskMetrics {

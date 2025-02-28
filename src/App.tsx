@@ -11,6 +11,8 @@ import LoginPage from '@/pages/LoginPage';
 import UserProfilePage from '@/pages/UserProfilePage';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import { ClerkProvider } from "@clerk/clerk-react";
+import { TradingProvider } from '@/contexts/TradingContext';
+import { ToastProvider } from "@/components/ui/toast";
 
 const clerkPubKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
 
@@ -32,35 +34,39 @@ const App = () => {
   return (
     <ClerkProvider publishableKey={clerkPubKey}>
       <QueryClientProvider client={queryClient}>
-        <TooltipProvider>
-          <Toaster />
-          <Sonner />
-          <BrowserRouter basename="/c-817085">
-            <Routes>
-              <Route path="/" element={<Layout />}>
-                <Route index element={<LandingPage />} />
-                <Route path="login/*" element={<LoginPage />} />
-                <Route path="register/*" element={<LoginPage />} />
-                <Route path="dashboard" element={
-                  <ProtectedRoute>
-                    <DashboardPage />
-                  </ProtectedRoute>
-                } />
-                <Route path="trading" element={
-                  <ProtectedRoute>
-                    <TradingPage />
-                  </ProtectedRoute>
-                } />
-                <Route path="profile" element={
-                  <ProtectedRoute>
-                    <UserProfilePage />
-                  </ProtectedRoute>
-                } />
-                <Route path="*" element={<Navigate to="/" replace />} />
-              </Route>
-            </Routes>
-          </BrowserRouter>
-        </TooltipProvider>
+        <ToastProvider>
+          <TooltipProvider>
+            <Toaster />
+            <Sonner />
+            <BrowserRouter basename="/c-817085">
+              <TradingProvider>
+                <Routes>
+                  <Route path="/" element={<Layout />}>
+                    <Route index element={<LandingPage />} />
+                    <Route path="login/*" element={<LoginPage />} />
+                    <Route path="register/*" element={<LoginPage />} />
+                    <Route path="dashboard" element={
+                      <ProtectedRoute>
+                        <DashboardPage />
+                      </ProtectedRoute>
+                    } />
+                    <Route path="trading" element={
+                      <ProtectedRoute>
+                        <TradingPage />
+                      </ProtectedRoute>
+                    } />
+                    <Route path="profile" element={
+                      <ProtectedRoute>
+                        <UserProfilePage />
+                      </ProtectedRoute>
+                    } />
+                    <Route path="*" element={<Navigate to="/" replace />} />
+                  </Route>
+                </Routes>
+              </TradingProvider>
+            </BrowserRouter>
+          </TooltipProvider>
+        </ToastProvider>
       </QueryClientProvider>
     </ClerkProvider>
   );
