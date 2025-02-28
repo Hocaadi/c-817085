@@ -9,18 +9,15 @@ export class PositionManager {
 
   constructor(apiKey: string, apiSecret: string) {
     this.deltaClient = new DeltaExchangeClient(apiKey, apiSecret);
-    this.initializeConnection();
   }
 
-  private async initializeConnection() {
+  async initializeConnection() {
     try {
-      this.isConnected = await this.deltaClient.checkConnection();
-      if (!this.isConnected) {
-        console.error('Failed to connect to Delta Exchange API');
-      }
+      this.isConnected = await this.deltaClient.startStrategy();
     } catch (error) {
       console.error('Error initializing Delta Exchange connection:', error);
       this.isConnected = false;
+      throw error;
     }
   }
 
@@ -36,7 +33,7 @@ export class PositionManager {
         throw new Error('Max drawdown limit reached');
       }
 
-      const order = await this.deltaClient.placeOrder(request);
+      const order = await this.deltaClient.executeSignal(request);
       const position: Position = {
         id: order.id,
         symbol: request.symbol,
@@ -75,7 +72,7 @@ export class PositionManager {
       quantity: position.quantity
     };
 
-    await this.deltaClient.placeOrder(closeRequest);
+    await this.deltaClient.executeSignal(closeRequest);
     position.status = 'CLOSED';
     this.positions.set(positionId, position);
   }
@@ -103,10 +100,15 @@ export class PositionManager {
   }
 
   async updatePositions(): Promise<void> {
-    const positions = await this.deltaClient.getPositions();
-    positions.forEach(position => {
-      if (this.positions.has(position.id)) {
-        const existingPosition = this.positions.get(position.id);
+    interface DeltaPosition {
+      id: string;
+      unrealized_pnl: number;
+    }
+
+    const positions = await this.deltaClient.getPositions() as DeltaPosition[];
+    positions.forEach((position: DeltaPosition) => {
+      const existingPosition = this.positions.get(position.id);
+      if (existingPosition) {
         existingPosition.pnl = position.unrealized_pnl;
         this.positions.set(position.id, existingPosition);
       }
@@ -121,6 +123,10 @@ export class PositionManager {
     if (mode === 'CLOSE_ALL' || mode === 'BOTH') {
       const openPositions = this.getOpenPositions();
       await Promise.all(openPositions.map(p => this.closePosition(p.id)));
+    }
+    if (mode === 'PREVENT_NEW' || mode === 'BOTH') {
+      this.deltaClient.stopStrategy();
+      this.isConnected = false;
     }
   }
 } 
