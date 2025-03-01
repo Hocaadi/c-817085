@@ -13,6 +13,9 @@ export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
     autoRefreshToken: true,
     persistSession: true,
   },
+  db: {
+    schema: 'public'
+  }
 });
 
 export default supabase;
