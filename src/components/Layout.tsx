@@ -1,5 +1,5 @@
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { LogIn, LogOut, User, Settings, Menu } from 'lucide-react';
+import { LogIn, LogOut, User, Settings, Menu, Bell } from 'lucide-react';
 import { useAuth, useUser, SignOutButton } from '@clerk/clerk-react';
 import {
   DropdownMenu,
@@ -42,6 +42,13 @@ const Layout = () => {
                     className="text-sm hover:text-primary transition-colors"
                   >
                     Trading
+                  </Link>
+                  <Link 
+                    to="/notifications" 
+                    className="text-sm hover:text-primary transition-colors flex items-center gap-2"
+                  >
+                    <Bell className="w-4 h-4" />
+                    Notifications
                   </Link>
                 </div>
               )}

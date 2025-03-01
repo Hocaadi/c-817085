@@ -3,6 +3,75 @@ import type { Trade, Position, Strategy, TradingSession } from '@/lib/supabase';
 import { OrderRequest } from '@/trading/core/types';
 
 export class DatabaseService {
+  // Notifications
+  async createNotification(
+    userId: string,
+    type: string,
+    strategyId: string,
+    details: any,
+    priority: 'LOW' | 'MEDIUM' | 'HIGH' = 'MEDIUM'
+  ) {
+    const { data, error } = await supabase
+      .from('notifications')
+      .insert({
+        user_id: userId,
+        type,
+        strategy_id: strategyId,
+        details,
+        read: false,
+        priority
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  }
+
+  async getNotifications(userId: string, unreadOnly: boolean = false) {
+    let query = supabase
+      .from('notifications')
+      .select('*, strategies(name)')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false });
+
+    if (unreadOnly) {
+      query = query.eq('read', false);
+    }
+
+    const { data, error } = await query;
+    if (error) throw error;
+    return data;
+  }
+
+  async markNotificationAsRead(notificationId: string) {
+    const { error } = await supabase
+      .from('notifications')
+      .update({ read: true })
+      .eq('id', notificationId);
+
+    if (error) throw error;
+  }
+
+  async markAllNotificationsAsRead(userId: string) {
+    const { error } = await supabase
+      .from('notifications')
+      .update({ read: true })
+      .eq('user_id', userId)
+      .eq('read', false);
+
+    if (error) throw error;
+  }
+
+  async deleteNotification(notificationId: string) {
+    const { error } = await supabase
+      .from('notifications')
+      .delete()
+      .eq('id', notificationId);
+
+    if (error) throw error;
+  }
+
   // Trading Sessions
   async createTradingSession(userId: string, strategyId: string, initialBalance: number): Promise<TradingSession> {
     const { data, error } = await supabase

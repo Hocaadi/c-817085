@@ -9,6 +9,7 @@ import TradingPage from '@/pages/TradingPage';
 import LandingPage from '@/pages/LandingPage';
 import LoginPage from '@/pages/LoginPage';
 import UserProfilePage from '@/pages/UserProfilePage';
+import NotificationsPage from '@/pages/notifications';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import { ClerkProvider } from "@clerk/clerk-react";
 import { TradingProvider } from '@/contexts/TradingContext';
@@ -58,6 +59,11 @@ const App = () => {
                     <Route path="profile" element={
                       <ProtectedRoute>
                         <UserProfilePage />
+                      </ProtectedRoute>
+                    } />
+                    <Route path="notifications" element={
+                      <ProtectedRoute>
+                        <NotificationsPage />
                       </ProtectedRoute>
                     } />
                     <Route path="*" element={<Navigate to="/" replace />} />

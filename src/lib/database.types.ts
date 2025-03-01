@@ -9,6 +9,20 @@ export type Json =
 export interface Database {
   public: {
     Tables: {
+      notifications: {
+        Row: {
+          id: string
+          created_at: string
+          user_id: string
+          type: string
+          strategy_id: string
+          details: Json
+          read: boolean
+          priority: 'LOW' | 'MEDIUM' | 'HIGH'
+        }
+        Insert: Omit<Database['public']['Tables']['notifications']['Row'], 'id' | 'created_at'>
+        Update: Partial<Database['public']['Tables']['notifications']['Row']>
+      }
       trades: {
         Row: {
           id: string
