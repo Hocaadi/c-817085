@@ -1,13 +1,12 @@
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { useTrading } from '@/contexts/TradingContext';
 import { toast } from '@/hooks/useToast';
 import { Strategy } from '@/lib/supabase';
 import { useAuth } from '@clerk/clerk-react';
+import { PlayCircle } from 'lucide-react';
 
 const AVAILABLE_STRATEGIES = [
   {
@@ -142,20 +141,16 @@ export function StrategySelector() {
     }
   };
 
+  const selectedStrategyDetails = AVAILABLE_STRATEGIES.find(s => s.id === selectedStrategy);
+
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Strategy Configuration</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="space-y-2">
-          <Label htmlFor="strategy">Trading Strategy</Label>
-          <Select
-            value={selectedStrategy}
-            onValueChange={setSelectedStrategy}
-          >
-            <SelectTrigger id="strategy">
-              <SelectValue placeholder="Select a strategy" />
+    <div className="bg-card/30 rounded-lg p-4">
+      <div className="flex items-end gap-4">
+        <div className="flex-1 space-y-1">
+          <label className="text-sm font-medium text-muted-foreground">Strategy</label>
+          <Select value={selectedStrategy} onValueChange={setSelectedStrategy}>
+            <SelectTrigger className="bg-background/50">
+              <SelectValue placeholder="Select strategy..." />
             </SelectTrigger>
             <SelectContent>
               {AVAILABLE_STRATEGIES.map((strategy) => (
@@ -167,14 +162,11 @@ export function StrategySelector() {
           </Select>
         </div>
 
-        <div className="space-y-2">
-          <Label htmlFor="timeframe">Timeframe</Label>
-          <Select
-            value={selectedTimeframe}
-            onValueChange={setSelectedTimeframe}
-          >
-            <SelectTrigger id="timeframe">
-              <SelectValue placeholder="Select a timeframe" />
+        <div className="flex-1 space-y-1">
+          <label className="text-sm font-medium text-muted-foreground">Timeframe</label>
+          <Select value={selectedTimeframe} onValueChange={setSelectedTimeframe}>
+            <SelectTrigger className="bg-background/50">
+              <SelectValue placeholder="Select timeframe..." />
             </SelectTrigger>
             <SelectContent>
               {AVAILABLE_TIMEFRAMES.map((timeframe) => (
@@ -186,13 +178,13 @@ export function StrategySelector() {
           </Select>
         </div>
 
-        <div className="space-y-2">
-          <Label htmlFor="quantity">Quantity</Label>
+        <div className="w-32 space-y-1">
+          <label className="text-sm font-medium text-muted-foreground">Quantity</label>
           <Input
-            id="quantity"
             type="number"
             value={quantity}
             onChange={(e) => setQuantity(e.target.value)}
+            className="bg-background/50"
             min="0.001"
             step="0.001"
           />
@@ -200,12 +192,35 @@ export function StrategySelector() {
 
         <Button
           onClick={handleStartStrategy}
-          disabled={!selectedStrategy || !selectedTimeframe || !quantity}
-          className="w-full"
+          className="bg-green-600 hover:bg-green-700 h-10"
+          size="sm"
+          disabled={!selectedStrategy || !selectedTimeframe || Number(quantity) <= 0}
         >
-          Start Strategy
+          <PlayCircle className="w-4 h-4 mr-2" />
+          Start
         </Button>
-      </CardContent>
-    </Card>
+      </div>
+
+      {selectedStrategyDetails && (
+        <div className="mt-3 flex items-center justify-between text-sm text-muted-foreground">
+          <p className="flex-1">{selectedStrategyDetails.description}</p>
+          <div className="flex gap-4 ml-4">
+            <span>RSI Period: {selectedStrategyDetails.parameters.rsiPeriod || '-'}</span>
+            {selectedStrategyDetails.parameters.overbought && (
+              <span>Overbought: {selectedStrategyDetails.parameters.overbought}</span>
+            )}
+            {selectedStrategyDetails.parameters.oversold && (
+              <span>Oversold: {selectedStrategyDetails.parameters.oversold}</span>
+            )}
+            {selectedStrategyDetails.parameters.fastPeriod && (
+              <span>Fast MA: {selectedStrategyDetails.parameters.fastPeriod}</span>
+            )}
+            {selectedStrategyDetails.parameters.slowPeriod && (
+              <span>Slow MA: {selectedStrategyDetails.parameters.slowPeriod}</span>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
   );
 } 

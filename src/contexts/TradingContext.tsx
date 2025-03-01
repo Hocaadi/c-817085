@@ -1,35 +1,69 @@
-import React, { createContext, useContext, useState } from 'react';
+import React, { createContext, useContext, useState, useEffect } from 'react';
 import { StrategyMonitor } from '@/services/StrategyMonitor';
 import { DatabaseService } from '@/services/database.service';
 import { DeltaExchangeClient } from '@/trading/core/DeltaExchangeClient';
 import { useAuth } from '@clerk/clerk-react';
 import { toast } from '@/hooks/useToast';
-import { Strategy } from '@/lib/supabase';
+import { Strategy, Position } from '@/lib/supabase';
+
+interface RiskMetrics {
+  currentDrawdown: number;
+  maxDrawdown: number;
+  totalEquity: number;
+  exposurePercentage: number;
+}
 
 interface TradingContextType {
   startStrategy: (strategy: Strategy) => Promise<void>;
   stopStrategy: (strategyId: string) => Promise<void>;
   handleKillSwitch: (action: 'PREVENT_NEW' | 'CLOSE_ALL' | 'BOTH') => void;
   activeStrategies: Strategy[];
+  positions: Position[];
+  riskMetrics: RiskMetrics;
 }
 
+const defaultRiskMetrics: RiskMetrics = {
+  currentDrawdown: 0,
+  maxDrawdown: 0,
+  totalEquity: 0,
+  exposurePercentage: 0
+};
+
 const TradingContext = createContext<TradingContextType | undefined>(undefined);
+
+const DELTA_API_KEY = '1mbsfq46ryz0flQOhhe9QrdpWrOzdz';
+const DELTA_API_SECRET = 'h84TwZ1qrljLCDwT1vnkBLMsp7WEKv8K3kDeqIqD0CQW4ht2yACtu0UU1aCJ';
 
 export function TradingProvider({ children }: { children: React.ReactNode }) {
   const { userId } = useAuth();
   const [activeStrategies, setActiveStrategies] = useState<Strategy[]>([]);
   const [strategyMonitor, setStrategyMonitor] = useState<StrategyMonitor | null>(null);
+  const [positions, setPositions] = useState<Position[]>([]);
+  const [riskMetrics, setRiskMetrics] = useState<RiskMetrics>(defaultRiskMetrics);
 
   const initializeStrategyMonitor = async (): Promise<StrategyMonitor | null> => {
     if (!userId) return null;
 
     try {
-      const deltaClient = new DeltaExchangeClient(
-        process.env.VITE_DELTA_EXCHANGE_API_KEY!,
-        process.env.VITE_DELTA_EXCHANGE_API_SECRET!
-      );
+      const deltaClient = new DeltaExchangeClient(DELTA_API_KEY, DELTA_API_SECRET);
       const dbService = new DatabaseService();
       const monitor = new StrategyMonitor(deltaClient, dbService, userId, 'session-1');
+      
+      // Initialize the client and fetch initial data
+      await monitor.startMonitoring();
+      
+      // Get initial positions and update state
+      const positions = await deltaClient.getPositions();
+      setPositions(positions);
+      
+      // Get wallet balance for risk metrics
+      const balances = await deltaClient.getBalance();
+      const totalEquity = balances.reduce((sum: number, balance: any) => sum + (balance.available_balance || 0), 0);
+      
+      setRiskMetrics(prev => ({
+        ...prev,
+        totalEquity
+      }));
       
       setStrategyMonitor(monitor);
       return monitor;
@@ -43,6 +77,37 @@ export function TradingProvider({ children }: { children: React.ReactNode }) {
       return null;
     }
   };
+
+  // Update positions and risk metrics periodically
+  useEffect(() => {
+    if (!strategyMonitor) return;
+
+    const updateData = async () => {
+      try {
+        const client = strategyMonitor.getDeltaClient();
+        const positions = await client.getPositions();
+        setPositions(positions);
+
+        const balances = await client.getBalance();
+        const totalEquity = balances.reduce((sum: number, balance: any) => sum + (balance.available_balance || 0), 0);
+        
+        // Calculate exposure from positions
+        const totalExposure = positions.reduce((sum: number, pos: any) => sum + Math.abs(pos.size * pos.entry_price), 0);
+        const exposurePercentage = (totalExposure / totalEquity) * 100;
+
+        setRiskMetrics(prev => ({
+          ...prev,
+          totalEquity,
+          exposurePercentage
+        }));
+      } catch (error) {
+        console.error('Failed to update trading data:', error);
+      }
+    };
+
+    const interval = setInterval(updateData, 5000); // Update every 5 seconds
+    return () => clearInterval(interval);
+  }, [strategyMonitor]);
 
   const startStrategy = async (strategy: Strategy) => {
     try {
@@ -151,7 +216,9 @@ export function TradingProvider({ children }: { children: React.ReactNode }) {
       startStrategy,
       stopStrategy,
       handleKillSwitch,
-      activeStrategies
+      activeStrategies,
+      positions,
+      riskMetrics
     }}>
       {children}
     </TradingContext.Provider>

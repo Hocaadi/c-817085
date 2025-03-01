@@ -1,7 +1,16 @@
 import { useTrading } from '../../contexts/TradingContext';
+import { Position } from '@/lib/supabase';
 
 export function PositionTable() {
-  const { positions } = useTrading();
+  const { positions = [] } = useTrading();
+
+  if (!positions || positions.length === 0) {
+    return (
+      <div className="text-center py-8 text-secondary-foreground/60">
+        No active positions
+      </div>
+    );
+  }
 
   return (
     <div className="overflow-x-auto">
@@ -17,7 +26,7 @@ export function PositionTable() {
           </tr>
         </thead>
         <tbody>
-          {positions.map((position) => (
+          {positions.map((position: Position) => (
             <tr key={position.id} className="border-b border-secondary/10">
               <td className="py-3 px-4">{position.symbol}</td>
               <td className="py-3 px-4">
@@ -31,13 +40,13 @@ export function PositionTable() {
                   {position.side}
                 </span>
               </td>
-              <td className="py-3 px-4">${position.entryPrice.toFixed(2)}</td>
-              <td className="py-3 px-4">{position.quantity}</td>
+              <td className="py-3 px-4">${(position.entry_price || 0).toFixed(2)}</td>
+              <td className="py-3 px-4">{position.quantity || 0}</td>
               <td className="py-3 px-4">
                 <span
                   className={position.pnl >= 0 ? 'text-green-500' : 'text-red-500'}
                 >
-                  ${position.pnl.toFixed(2)}
+                  ${(position.pnl || 0).toFixed(2)}
                 </span>
               </td>
               <td className="py-3 px-4">
@@ -48,7 +57,7 @@ export function PositionTable() {
                       : 'bg-secondary/20'
                   }`}
                 >
-                  {position.status}
+                  {position.status || 'CLOSED'}
                 </span>
               </td>
             </tr>

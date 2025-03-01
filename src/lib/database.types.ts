@@ -63,15 +63,48 @@ export interface Database {
         Row: {
           id: string
           created_at: string
-          user_id: string
+          updated_at: string
           name: string
           description: string
+          type: 'ADARSH_BULL' | 'RSI' | 'MOVING_AVERAGE'
           parameters: Json
-          status: 'ACTIVE' | 'INACTIVE'
-          performance_metrics: Json
+          performance_metrics: {
+            totalTrades: number
+            winRate: number
+            profitFactor: number
+            lastActivated?: string
+            lastDeactivated?: string
+          }
+          user_id: string
+          symbol: string
+          status: 'ACTIVE' | 'INACTIVE' | 'PAUSED'
         }
-        Insert: Omit<Database['public']['Tables']['strategies']['Row'], 'id' | 'created_at'>
-        Update: Partial<Database['public']['Tables']['strategies']['Row']>
+        Insert: {
+          id?: string
+          created_at?: string
+          updated_at?: string
+          name: string
+          description?: string
+          type: 'ADARSH_BULL' | 'RSI' | 'MOVING_AVERAGE'
+          parameters?: Json
+          performance_metrics?: Json
+          user_id: string
+          symbol: string
+          status?: 'ACTIVE' | 'INACTIVE' | 'PAUSED'
+        }
+        Update: {
+          id?: string
+          created_at?: string
+          updated_at?: string
+          name?: string
+          description?: string
+          type?: 'ADARSH_BULL' | 'RSI' | 'MOVING_AVERAGE'
+          parameters?: Json
+          performance_metrics?: Json
+          user_id?: string
+          symbol?: string
+          status?: 'ACTIVE' | 'INACTIVE' | 'PAUSED'
+        }
       }
       trading_sessions: {
         Row: {

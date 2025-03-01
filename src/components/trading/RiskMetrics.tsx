@@ -1,7 +1,12 @@
 import { useTrading } from '../../contexts/TradingContext';
 
 export function RiskMetrics() {
-  const { riskMetrics } = useTrading();
+  const { riskMetrics = {
+    currentDrawdown: 0,
+    maxDrawdown: 0,
+    totalEquity: 0,
+    exposurePercentage: 0
+  } } = useTrading();
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -10,7 +15,7 @@ export function RiskMetrics() {
           Current Drawdown
         </h3>
         <p className="text-2xl font-semibold">
-          {riskMetrics.currentDrawdown.toFixed(2)}%
+          {(riskMetrics.currentDrawdown || 0).toFixed(2)}%
         </p>
       </div>
 
@@ -19,7 +24,7 @@ export function RiskMetrics() {
           Max Drawdown
         </h3>
         <p className="text-2xl font-semibold">
-          {riskMetrics.maxDrawdown.toFixed(2)}%
+          {(riskMetrics.maxDrawdown || 0).toFixed(2)}%
         </p>
       </div>
 
@@ -28,7 +33,7 @@ export function RiskMetrics() {
           Total Equity
         </h3>
         <p className="text-2xl font-semibold">
-          ${riskMetrics.totalEquity.toFixed(2)}
+          ${(riskMetrics.totalEquity || 0).toFixed(2)}
         </p>
       </div>
 
@@ -37,7 +42,7 @@ export function RiskMetrics() {
           Exposure
         </h3>
         <p className="text-2xl font-semibold">
-          {riskMetrics.exposurePercentage.toFixed(2)}%
+          {(riskMetrics.exposurePercentage || 0).toFixed(2)}%
         </p>
       </div>
     </div>

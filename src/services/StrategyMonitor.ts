@@ -1,73 +1,130 @@
 import { DeltaExchangeClient } from '@/trading/core/DeltaExchangeClient';
 import { DatabaseService } from './database.service';
-import { Strategy, Trade } from '@/lib/supabase';
-import { OrderRequest } from '@/trading/core/types';
+import { Strategy } from '@/lib/supabase';
 import { toast } from '@/hooks/useToast';
-
-interface StrategySignal {
-  strategy: Strategy;
-  signal: 'BUY' | 'SELL';
-  symbol: string;
-  price: number;
-  quantity: number;
-  timestamp: number;
-}
+import { createStrategy, STRATEGY_TYPES } from '@/trading/strategies';
 
 export class StrategyMonitor {
-  private activeStrategies: Map<string, Strategy> = new Map();
+  private activeStrategies: Map<string, any> = new Map();
   private isMonitoring: boolean = false;
-  private signalCheckInterval: NodeJS.Timer | null = null;
-  private readonly checkIntervalMs: number = 5000; // Check every 5 seconds
+  private readonly checkIntervalMs: number = 5000;
 
   constructor(
     private readonly deltaClient: DeltaExchangeClient,
     private readonly dbService: DatabaseService,
     private readonly userId: string,
     private readonly sessionId: string
-  ) {}
-
-  async addStrategy(strategy: Strategy) {
-    this.activeStrategies.set(strategy.id, strategy);
-    await this.dbService.updateStrategyMetrics(strategy.id, {
-      ...strategy.performance_metrics,
-      lastActivated: new Date().toISOString()
-    });
-
-    toast({
-      title: "Strategy Added",
-      description: `Now monitoring ${strategy.name}`
-    });
+  ) {
+    console.log('[StrategyMonitor] Initialized with session:', sessionId);
   }
 
-  async removeStrategy(strategyId: string) {
-    const strategy = this.activeStrategies.get(strategyId);
-    if (strategy) {
-      this.activeStrategies.delete(strategyId);
-      await this.dbService.updateStrategyMetrics(strategyId, {
+  public getDeltaClient(): DeltaExchangeClient {
+    return this.deltaClient;
+  }
+
+  async addStrategy(strategy: Strategy): Promise<void> {
+    try {
+      console.log('[StrategyMonitor] Adding strategy:', strategy.name);
+
+      // Create strategy instance
+      const strategyInstance = createStrategy(
+        strategy.type as any, // We'll need to ensure strategy.type matches STRATEGY_TYPES
+        this.deltaClient,
+        strategy,
+        strategy.symbol || 'bitcoin' // Default to bitcoin if no symbol specified
+      );
+
+      // Store the strategy instance
+      this.activeStrategies.set(strategy.id, strategyInstance);
+
+      // Update database
+      await this.dbService.updateStrategyMetrics(strategy.id, {
         ...strategy.performance_metrics,
-        lastDeactivated: new Date().toISOString()
+        lastActivated: new Date().toISOString()
       });
 
+      console.log('[StrategyMonitor] Strategy added successfully:', strategy.name);
+      
+      // If monitoring is already active, start the strategy
+      if (this.isMonitoring) {
+        await strategyInstance.start();
+      }
+
       toast({
-        title: "Strategy Removed",
-        description: `Stopped monitoring ${strategy.name}`
+        title: "Strategy Added",
+        description: `Now monitoring ${strategy.name}`
       });
+    } catch (error) {
+      console.error('[StrategyMonitor] Failed to add strategy:', error);
+      toast({
+        variant: "destructive",
+        title: "Strategy Error",
+        description: `Failed to add strategy: ${error instanceof Error ? error.message : 'Unknown error'}`
+      });
+      throw error;
     }
   }
 
-  async startMonitoring() {
-    if (this.isMonitoring) return;
-
+  async removeStrategy(strategyId: string): Promise<void> {
     try {
+      console.log('[StrategyMonitor] Removing strategy:', strategyId);
+      
+      const strategyInstance = this.activeStrategies.get(strategyId);
+      if (strategyInstance) {
+        // Stop the strategy
+        strategyInstance.stop();
+        this.activeStrategies.delete(strategyId);
+
+        // Update database
+        const strategy = await this.dbService.getStrategy(strategyId);
+        if (strategy) {
+          await this.dbService.updateStrategyMetrics(strategyId, {
+            ...strategy.performance_metrics,
+            lastDeactivated: new Date().toISOString()
+          });
+        }
+
+        toast({
+          title: "Strategy Removed",
+          description: "Strategy has been stopped and removed"
+        });
+      }
+    } catch (error) {
+      console.error('[StrategyMonitor] Failed to remove strategy:', error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to remove strategy"
+      });
+      throw error;
+    }
+  }
+
+  async startMonitoring(): Promise<void> {
+    try {
+      console.log('[StrategyMonitor] Starting monitoring');
+      
+      // Initialize Delta Exchange client
       await this.deltaClient.startStrategy();
+      
       this.isMonitoring = true;
-      this.startSignalCheck();
+
+      // Start all active strategies
+      for (const [id, strategy] of this.activeStrategies) {
+        try {
+          await strategy.start();
+        } catch (error) {
+          console.error(`[StrategyMonitor] Failed to start strategy ${id}:`, error);
+        }
+      }
 
       toast({
         title: "Monitoring Started",
         description: `Actively monitoring ${this.activeStrategies.size} strategies`
       });
     } catch (error) {
+      this.isMonitoring = false;
+      console.error('[StrategyMonitor] Failed to start monitoring:', error);
       toast({
         variant: "destructive",
         title: "Monitoring Failed",
@@ -77,147 +134,27 @@ export class StrategyMonitor {
     }
   }
 
-  stopMonitoring() {
-    if (!this.isMonitoring) return;
-
+  stopMonitoring(): void {
+    console.log('[StrategyMonitor] Stopping all monitoring');
+    
     this.isMonitoring = false;
-    if (this.signalCheckInterval) {
-      clearInterval(this.signalCheckInterval);
-      this.signalCheckInterval = null;
+    
+    // Stop all active strategies
+    for (const strategy of this.activeStrategies.values()) {
+      strategy.stop();
     }
+    
     this.deltaClient.stopStrategy();
-
+    
     toast({
       title: "Monitoring Stopped",
       description: "All strategy monitoring has been stopped"
     });
   }
 
-  private startSignalCheck() {
-    this.signalCheckInterval = setInterval(async () => {
-      try {
-        const signals = await this.checkAllStrategySignals();
-        for (const signal of signals) {
-          await this.processSignal(signal);
-        }
-      } catch (error) {
-        console.error('Error checking signals:', error);
-      }
-    }, this.checkIntervalMs);
-  }
-
-  private async checkAllStrategySignals(): Promise<StrategySignal[]> {
-    const signals: StrategySignal[] = [];
-    
-    for (const strategy of this.activeStrategies.values()) {
-      try {
-        const strategySignals = await this.evaluateStrategy(strategy);
-        signals.push(...strategySignals);
-      } catch (error) {
-        console.error(`Error evaluating strategy ${strategy.name}:`, error);
-      }
-    }
-
-    return signals;
-  }
-
-  private async evaluateStrategy(strategy: Strategy): Promise<StrategySignal[]> {
-    const signals: StrategySignal[] = [];
-    const params = strategy.parameters as any;
-
-    // Example strategy evaluation (customize based on your strategy types)
-    switch (strategy.name) {
-      case 'RSI Strategy':
-        signals.push(...await this.evaluateRSIStrategy(strategy, params));
-        break;
-      case 'Moving Average Strategy':
-        signals.push(...await this.evaluateMAStrategy(strategy, params));
-        break;
-      // Add more strategy types here
-    }
-
-    return signals;
-  }
-
-  private async processSignal(signal: StrategySignal) {
-    try {
-      const orderRequest: OrderRequest = {
-        symbol: signal.symbol,
-        side: signal.signal,
-        type: 'LIMIT',
-        quantity: signal.quantity,
-        price: signal.price
-      };
-
-      const order = await this.deltaClient.executeSignal(orderRequest);
-
-      // Record the trade
-      await this.dbService.recordTrade(
-        this.userId,
-        this.sessionId,
-        signal.strategy.id,
-        orderRequest,
-        signal.price
-      );
-
-      // Create notification
-      await this.createNotification({
-        type: 'TRADE_EXECUTED',
-        strategyId: signal.strategy.id,
-        details: {
-          symbol: signal.symbol,
-          side: signal.signal,
-          price: signal.price,
-          quantity: signal.quantity,
-          orderId: order.id
-        }
-      });
-
-    } catch (error) {
-      console.error('Error processing signal:', error);
-      await this.createNotification({
-        type: 'TRADE_FAILED',
-        strategyId: signal.strategy.id,
-        details: {
-          symbol: signal.symbol,
-          side: signal.signal,
-          price: signal.price,
-          quantity: signal.quantity,
-          error: error instanceof Error ? error.message : 'Unknown error'
-        }
-      });
-    }
-  }
-
-  private async createNotification(notification: {
-    type: string;
-    strategyId: string;
-    details: any;
-  }) {
-    try {
-      await this.dbService.createNotification(
-        this.userId,
-        notification.type,
-        notification.strategyId,
-        notification.details
-      );
-    } catch (error) {
-      console.error('Error creating notification:', error);
-    }
-  }
-
-  // Strategy evaluation methods
-  private async evaluateRSIStrategy(strategy: Strategy, params: any): Promise<StrategySignal[]> {
-    // Implement RSI strategy logic here
-    return [];
-  }
-
-  private async evaluateMAStrategy(strategy: Strategy, params: any): Promise<StrategySignal[]> {
-    // Implement Moving Average strategy logic here
-    return [];
-  }
-
   getActiveStrategies(): Strategy[] {
-    return Array.from(this.activeStrategies.values());
+    return Array.from(this.activeStrategies.keys()).map(id => 
+      this.activeStrategies.get(id).strategy
+    );
   }
 } 
