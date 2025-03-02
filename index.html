@@ -2,6 +2,17 @@
 <html lang="en">
 
 <head>
+  <script> 
+    // Check for redirect path from 404.html 
+    document.addEventListener("DOMContentLoaded", function() { 
+      const redirectPath = sessionStorage.getItem("redirectPath"); 
+      if (redirectPath) { 
+        sessionStorage.removeItem("redirectPath"); 
+        const newPath = "/c-817085/" + redirectPath; 
+        window.history.replaceState(null, null, newPath); 
+      } 
+    }); 
+  </script>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Crypto Hub</title>
@@ -22,7 +33,7 @@
       }
     }(window.location))
   </script>
-  <script type="module" crossorigin src="/c-817085/assets/index-DVMbi1w0.js"></script>
+  <script type="module" crossorigin src="/c-817085/assets/index-S5iIHIiH.js"></script>
   <link rel="modulepreload" crossorigin href="/c-817085/assets/vendor-BxsRtU5J.js">
   <link rel="stylesheet" crossorigin href="/c-817085/assets/index-0ICQQBy5.css">
 </head>
