@@ -38,8 +38,6 @@ export class DeltaExchangeClient {
   private readonly baseUrl: string;
   private isInitialized: boolean = false;
   private isStrategyActive: boolean = false;
-  private serverTimeOffset: number = 0;
-  private lastTimeSync: number = 0;
 
   constructor(apiKey: string, apiSecret: string, baseUrl: string = 'https://api.india.delta.exchange') {
     if (!apiKey || !apiSecret) {
@@ -102,165 +100,173 @@ export class DeltaExchangeClient {
   }
 
   /**
-   * Gets the current timestamp with server time offset adjustment
+   * Gets the current timestamp - using local time only with a buffer to account for network delays
    */
-  private getTimestamp(): string {
+  private getTimestamp(additionalBuffer: number = 0): string {
     // Get local time in seconds (ensure it's an integer)
     const localTime = Math.floor(Date.now() / 1000);
     
-    // Apply the server time offset to synchronize with Delta Exchange server time
-    const adjustedTime = Math.floor(localTime + this.serverTimeOffset);
+    // Add a buffer (5 seconds by default + any additional buffer) to account for network delays
+    // This helps prevent "expired_signature" errors when the request takes time to reach the server
+    const timestampWithBuffer = localTime + 5 + additionalBuffer;
     
-    // Ensure we return only an integer as string with no decimal places
-    const timestamp = adjustedTime.toString();
-    console.log(`🕒 Using timestamp: ${timestamp} (local: ${localTime}, offset: ${this.serverTimeOffset})`);
-    return timestamp;
+    console.log(`🕒 Using local timestamp: ${localTime} with buffer: ${timestampWithBuffer} (buffer: +${5 + additionalBuffer}s)`);
+    return timestampWithBuffer.toString();
   }
 
   /**
-   * Sync time with the server to ensure our timestamps are valid
-   * This should be called before making authenticated requests
-   */
-  public async syncServerTime(): Promise<void> {
-    try {
-      // Only sync if we haven't done so in the last 5 minutes (reduced from 30 mins)
-      const now = Date.now();
-      if (now - this.lastTimeSync < 5 * 60 * 1000 && this.serverTimeOffset !== 0) {
-        console.log('[DeltaExchange] Using existing time offset:', this.serverTimeOffset);
-        return;
-      }
-
-      const localTime = Math.floor(Date.now() / 1000);
-      console.log('[DeltaExchange] Current local timestamp:', localTime);
-      
-      // Use the correct endpoint for server time
-      const response = await axios.get(`${this.baseUrl}/v2/time`);
-      if (response.data && response.data.result) {
-        // Ensure server time is an integer
-        const serverTime = Math.floor(response.data.result.server_time);
-        this.serverTimeOffset = serverTime - localTime;
-        this.lastTimeSync = now;
-        
-        console.log('[DeltaExchange] Server time:', serverTime);
-        console.log('[DeltaExchange] Local time:', localTime);
-        console.log('[DeltaExchange] Calculated offset:', this.serverTimeOffset, 'seconds');
-        
-        if (Math.abs(this.serverTimeOffset) > 10) {
-          console.warn(`[DeltaExchange] ⚠️ Significant time difference of ${this.serverTimeOffset} seconds detected`);
-        } else {
-          console.log('[DeltaExchange] ✅ Time difference is within acceptable range');
-        }
-      }
-    } catch (error) {
-      console.error('[DeltaExchange] Error fetching server time:', error);
-      // If we can't reach the server, don't change the existing offset
-    }
-  }
-
-  /**
-   * Legacy method for backward compatibility
+   * Legacy method for backward compatibility - now does nothing
    */
   public async forceSyncTime(): Promise<void> {
-    return this.syncServerTime();
+    console.log('[DeltaExchange] Time synchronization disabled - using local time only');
+    return Promise.resolve();
   }
 
-  private async makeRequestWithRetry(config: AxiosRequestConfig, retries: number = 3): Promise<any> {
-    // Ensure time is synced before making authenticated requests
-    await this.syncServerTime();
+  private async makeRequestWithRetry(
+    config: AxiosRequestConfig, 
+    retryCount: number = 0,
+    maxRetries: number = 3
+  ): Promise<any> {
+    console.log(`[DeltaExchange] Making request with local time (with buffer), attempt ${retryCount + 1}/${maxRetries + 1}`);
     
-    for (let attempt = 1; attempt <= retries; attempt++) {
-      try {
-        console.log(`[DeltaExchange] Request attempt ${attempt}/${retries}:`, config.url);
+    try {
+      console.log(`[DeltaExchange] Making request to:`, config.url);
+      console.log('[DeltaExchange] Request headers:', JSON.stringify(config.headers, null, 2));
+      
+      // Calculate the time difference between signature generation and request start
+      const requestStartTime = Date.now() / 1000;
+      const signatureTime = parseInt(config.headers?.['timestamp'] as string || '0');
+      const timeSinceSignature = requestStartTime - signatureTime;
+      
+      // Log warning if we're close to the expiration window
+      if (timeSinceSignature > 2) {
+        console.warn(`[DeltaExchange] ⚠️ Warning: ${timeSinceSignature.toFixed(2)}s elapsed since signature generation`);
+        console.warn('[DeltaExchange] Signatures expire after 5 seconds, which may cause request failures');
+      }
+      
+      const response = await axios(config);
+      
+      // Log success
+      console.log(`[DeltaExchange] Request successful (${response.status})`);
+      
+      return response;
+    } catch (error) {
+      if (!axios.isAxiosError(error)) {
+        console.error('[DeltaExchange] Non-Axios error:', error);
+        throw error;
+      }
+      
+      // Extract error details for better debugging
+      const statusCode = error.response?.status;
+      const errorCode = error.response?.data?.error?.code;
+      const errorMessage = error.response?.data?.error?.message;
+      
+      console.error(`[DeltaExchange] Error: ${statusCode} - ${errorCode} - ${errorMessage}`);
+      console.error('[DeltaExchange] Full error response:', JSON.stringify(error.response?.data, null, 2));
+      
+      // Handle specific error types
+      if (statusCode === 401 && errorCode === 'invalid_api_key') {
+        console.error('[DeltaExchange] ❌ Invalid API key detected. Please check your credentials.');
+        console.error(`[DeltaExchange] API Key used: ${config.headers?.['api-key']}`);
+        throw new Error('Invalid API key. Please check your credentials and ensure you are using the correct API key for the India region.');
+      }
+      
+      // If we got an expired signature error, retry with a refreshed signature if we haven't exceeded max retries
+      if (statusCode === 401 && 
+          (errorCode === 'expired_signature' || errorMessage?.includes('signature has expired'))) {
         
-        // For debugging
-        if (attempt === 1) {
-          console.log('[DeltaExchange] Request headers:', JSON.stringify(config.headers, null, 2));
-        }
+        console.error('[DeltaExchange] ❌ Expired signature detected. Request failed.');
+        console.error('[DeltaExchange] Delta Exchange requires signatures to be received within 5 seconds of generation.');
         
-        const response = await axios(config);
-        
-        // Log success for debugging
-        console.log(`[DeltaExchange] Request successful (${response.status})`);
-        
-        return response;
-      } catch (error) {
-        if (!axios.isAxiosError(error)) {
-          console.error('[DeltaExchange] Non-Axios error:', error);
-          throw error;
-        }
-        
-        // Extract error details for better debugging
-        const statusCode = error.response?.status;
-        const errorCode = error.response?.data?.error?.code;
-        const errorMessage = error.response?.data?.error?.message;
-        
-        console.error(`[DeltaExchange] Error: ${statusCode} - ${errorCode} - ${errorMessage}`);
-        console.error('[DeltaExchange] Full error response:', JSON.stringify(error.response?.data, null, 2));
-        
-        // Handle specific error types
-        const isExpiredSignature = statusCode === 401 && errorCode === 'expired_signature';
-        const isInvalidApiKey = statusCode === 401 && errorCode === 'invalid_api_key';
-        
-        if (isInvalidApiKey) {
-          console.error('[DeltaExchange] ❌ Invalid API key detected. Please check your credentials.');
-          console.error(`[DeltaExchange] API Key used: ${config.headers?.['api-key']}`);
-          // Don't retry for invalid API key - it won't succeed
-          throw new Error('Invalid API key. Please check your credentials and ensure you are using the correct API key for the India region.');
-        }
-           
-        if (isExpiredSignature && attempt < retries) {
-          console.log(`[DeltaExchange] Signature expired on attempt ${attempt}, retrying with new timestamp...`);
+        // Log timing information if available
+        let serverClientTimeDiff = 0;
+        if (error.response?.data?.error?.context) {
+          const requestTime = error.response?.data?.error?.context?.request_time;
+          const serverTime = error.response?.data?.error?.context?.server_time;
+          console.error(`[DeltaExchange] Request time: ${requestTime}`);
+          console.error(`[DeltaExchange] Server time: ${serverTime}`);
           
-          // Extract server time from error if available
-          if (error.response?.data?.error?.context?.server_time) {
-            const serverTime = error.response.data.error.context.server_time;
-            const localTime = Math.floor(Date.now() / 1000);
+          if (requestTime && serverTime) {
+            // Fix: Parse strings to integers first to ensure proper calculation
+            const requestTimeInt = typeof requestTime === 'string' ? parseInt(requestTime) : requestTime;
+            const serverTimeInt = typeof serverTime === 'string' ? parseInt(serverTime) : serverTime;
             
-            // Update our offset based on this error
-            this.serverTimeOffset = Math.floor(serverTime - localTime);
-            console.log(`[DeltaExchange] Updated time offset to ${this.serverTimeOffset} based on error`);
+            // Calculate time difference in seconds
+            serverClientTimeDiff = serverTimeInt - requestTimeInt;
+            console.error(`[DeltaExchange] Server-client time difference: ${serverClientTimeDiff}s`);
+            
+            // Log warning if there's a large time difference
+            if (Math.abs(serverClientTimeDiff) > 60) {
+              console.error(`[DeltaExchange] ⚠️ WARNING: Large time difference detected (${serverClientTimeDiff}s)`);
+              console.error('[DeltaExchange] This may cause persistent signature expiration issues');
+            }
+          }
+        }
+        
+        // Get the timestamp from the headers
+        const signatureTime = parseInt(config.headers?.['timestamp'] as string || '0');
+        const currentTime = Math.floor(Date.now() / 1000);
+        const elapsedTime = currentTime - signatureTime;
+        
+        console.error(`[DeltaExchange] Signature timestamp: ${signatureTime}, Current time: ${currentTime}`);
+        console.error(`[DeltaExchange] Time elapsed since signature generation: ${elapsedTime}s (limit is 5s)`);
+        
+        // Retry with a fresh signature if we haven't exceeded max retries
+        if (retryCount < maxRetries) {
+          console.log(`[DeltaExchange] Retrying with a fresh signature (attempt ${retryCount + 2}/${maxRetries + 1})`);
+          
+          // Extract the original path from the URL
+          const urlObj = new URL(config.url || '');
+          const path = urlObj.pathname;
+          
+          // Generate a new timestamp with an increased buffer for each retry
+          // Add a much larger buffer if we detected a huge time difference
+          let additionalBuffer = 0;
+          
+          if (serverClientTimeDiff > 0) {
+            // If server time is ahead of request time, add that difference plus a safety margin
+            additionalBuffer = serverClientTimeDiff + 10 + (retryCount * 5);
+            console.log(`[DeltaExchange] Using server-client time difference (${serverClientTimeDiff}s) + safety margin for buffer`);
           } else {
-            // Force a re-sync with server time
-            await this.syncServerTime();
+            // Otherwise use a progressive buffer based on retry count
+            additionalBuffer = (retryCount + 1) * 10;
           }
           
-          // Generate a fresh timestamp with updated offset
-          const newTimestamp = this.getTimestamp();
+          console.log(`[DeltaExchange] Using additional buffer of ${additionalBuffer}s for retry`);
           
-          // Extract path from URL for signature generation
-          const url = new URL(config.url || '');
-          const path = url.pathname;
+          const newTimestamp = this.getTimestamp(additionalBuffer);
           
-          // Generate new signature with the fresh timestamp
-          const newSignature = this.generateSignature(
+          // Generate a new signature with the fresh timestamp
+          const signature = this.generateSignature(
             config.method?.toUpperCase() || 'GET',
             newTimestamp,
             path
           );
           
-          // Update headers
-          config.headers = {
-            ...config.headers,
-            'timestamp': newTimestamp,
-            'signature': newSignature
+          // Update the config with the new timestamp and signature
+          const newConfig = {
+            ...config,
+            headers: {
+              ...config.headers,
+              'timestamp': newTimestamp,
+              'signature': signature
+            }
           };
           
-          // Log updated headers
-          console.log('[DeltaExchange] Updated request headers:', JSON.stringify(config.headers, null, 2));
-          
-          // Add a short delay to ensure server time advances
-          await new Promise(resolve => setTimeout(resolve, 1500));
-          continue;
+          // Recursive call with updated retry count
+          return this.makeRequestWithRetry(newConfig, retryCount + 1, maxRetries);
         }
         
-        if (attempt === retries) {
-          console.error(`[DeltaExchange] Max retries (${retries}) exceeded for request to ${config.url}`);
-        }
-        
-        throw error;
+        // If we've exhausted retries, throw a more descriptive error
+        throw new Error(
+          'Signature expired: Request took too long to reach Delta Exchange servers despite multiple attempts with increasing time buffers. ' +
+          'This may be due to a significant time difference between your system and the Delta servers, ' +
+          'network latency, or server issues. Please try again later or check your system clock.'
+        );
       }
+      
+      throw error;
     }
-    throw new Error('Max retries exceeded');
   }
 
   private async makeRequest(method: string, endpoint: string, data?: any, requiresStrategy: boolean = true) {
@@ -274,8 +280,7 @@ export class DeltaExchangeClient {
     console.log(`🌐 Base URL: ${this.baseUrl}`);
     
     try {
-      // Ensure time is synchronized
-      await this.syncServerTime();
+      // No time sync needed - using local time
       
       // Ensure endpoint is properly formatted
       const path = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
@@ -286,7 +291,7 @@ export class DeltaExchangeClient {
       
       console.log(`📍 Endpoint: ${fullPath}`);
       
-      // Get timestamp with server offset applied
+      // Get timestamp - using local time with buffer
       const timestamp = this.getTimestamp();
       
       // Generate signature with method, timestamp, and path only
@@ -319,7 +324,7 @@ export class DeltaExchangeClient {
 
       console.log(`[DeltaExchange] Making ${method.toUpperCase()} request to ${fullPath}`);
       
-      // Make request with retries
+      // Make request with automatic retry for expired signatures
       const response = await this.makeRequestWithRetry(config);
       return response.data;
     } catch (error) {
@@ -330,20 +335,10 @@ export class DeltaExchangeClient {
         console.error(`  Error Code: ${axiosError.response?.data?.error?.code}`);
         console.error(`  Message: ${axiosError.response?.data?.error?.message || axiosError.message}`);
         
+        // Log timing information if available
         if (axiosError.response?.data?.error?.context) {
           console.error(`  Request Time: ${axiosError.response?.data?.error?.context?.request_time}`);
           console.error(`  Server Time: ${axiosError.response?.data?.error?.context?.server_time}`);
-          
-          // If there's a time difference in the error response, update our offset
-          if (axiosError.response?.data?.error?.context?.server_time && 
-              axiosError.response?.data?.error?.context?.request_time) {
-            const serverTime = axiosError.response.data.error.context.server_time;
-            const requestTime = axiosError.response.data.error.context.request_time;
-            const newOffset = serverTime - requestTime;
-            
-            console.log(`[DeltaExchange] Updating time offset based on error response: ${newOffset}`);
-            this.serverTimeOffset = newOffset;
-          }
         }
         
         // Return empty result for GET requests if they fail
@@ -371,8 +366,7 @@ export class DeltaExchangeClient {
       
       console.log('[DeltaExchange] Validating API credentials...');
       
-      // Sync time with server first
-      await this.syncServerTime();
+      // No time sync needed
       
       // Verify authentication by checking wallet balance directly
       console.log('[DeltaExchange] Testing API connection by fetching wallet balances...');
@@ -408,7 +402,7 @@ export class DeltaExchangeClient {
           if (error.response.data?.error?.code === 'invalid_api_key') {
             errorMessage = 'Invalid API key. Please check your credentials.';
           } else if (error.response.data?.error?.code === 'expired_signature') {
-            errorMessage = 'Signature expired. Please check your system clock.';
+            errorMessage = 'Signature expired. This may be due to network delays.';
           }
         }
       }
@@ -666,7 +660,7 @@ export class DeltaExchangeClient {
    * Verify that the API key and secret are valid by making a simple authenticated request
    * This can be used to check credentials without starting the full strategy
    */
-  async verifyApiCredentials(): Promise<{ valid: boolean; message: string }> {
+  async verifyApiCredentials(additionalBuffer: number = 0): Promise<{ valid: boolean; message: string }> {
     try {
       console.log('[DeltaExchange] Verifying API credentials...');
       
@@ -685,8 +679,11 @@ export class DeltaExchangeClient {
         };
       }
       
-      // Sync time with server first
-      await this.syncServerTime();
+      // No time sync needed
+      // If an additional buffer was provided, log it
+      if (additionalBuffer > 0) {
+        console.log(`[DeltaExchange] Using additional buffer of ${additionalBuffer}s for verification timestamp`);
+      }
       
       // Make a simple request to check authentication
       console.log('[DeltaExchange] Testing API authentication...');
@@ -727,7 +724,7 @@ export class DeltaExchangeClient {
           if (error.response.data?.error?.code === 'invalid_api_key') {
             errorMessage = 'Invalid API key. Please check your credentials.';
           } else if (error.response.data?.error?.code === 'expired_signature') {
-            errorMessage = 'Signature expired. This may be due to system clock issues.';
+            errorMessage = 'Signature expired. This may be due to network delays.';
           }
         }
       }

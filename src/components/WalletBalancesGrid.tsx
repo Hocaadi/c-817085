@@ -11,7 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useDeltaClient } from '@/components/DeltaClientProvider';
-import { AlertCircle, RefreshCw } from 'lucide-react';
+import { AlertCircle, RefreshCw, ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 interface Balance {
@@ -27,20 +27,19 @@ export function WalletBalancesGrid() {
   const [balances, setBalances] = useState<Balance[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [retryCount, setRetryCount] = useState(0);
 
   const fetchBalances = async () => {
     if (!client) {
+      setError("Client not initialized");
       return;
     }
 
     try {
       setLoading(true);
       setError(null);
-      console.log(`Fetching wallet balances (attempt ${retryCount + 1})...`);
+      console.log('Fetching wallet balances...');
       
-      // We no longer need to explicitly call forceSyncTime here as it's handled in the client
-      
+      // Fetch balances using direct API call
       const response = await client.getBalance();
       console.log('Wallet balances response:', response);
       
@@ -61,13 +60,14 @@ export function WalletBalancesGrid() {
       console.error('Error fetching wallet balances:', err);
       setError(err instanceof Error ? err.message : 'Unknown error');
       
-      // Auto-retry with exponential backoff to avoid hammering the API
-      if (retryCount < 2) {
-        const delayMs = Math.min(2000 * Math.pow(2, retryCount), 10000); // Exponential backoff with max 10s
-        console.log(`Auto-retrying in ${delayMs/1000} seconds (attempt ${retryCount + 2})...`);
-        setTimeout(() => {
-          setRetryCount(prev => prev + 1);
-        }, delayMs);
+      if (err instanceof Error) {
+        // Special handling for signature expiration errors
+        if (err.message.includes('expired_signature') || err.message.includes('Signature expired')) {
+          setError(
+            'Authentication timing issue: Signature expired before reaching Delta servers. ' +
+            'This may be due to network latency. Please try again.'
+          );
+        }
       }
     } finally {
       setLoading(false);
@@ -80,11 +80,11 @@ export function WalletBalancesGrid() {
     }
 
     fetchBalances();
-  }, [client, isInitialized, retryCount]);
+  }, [client, isInitialized]);
 
   const handleRetry = () => {
-    setRetryCount(count => count + 1);
     console.log('Manually retrying wallet balance fetch...');
+    fetchBalances();
   };
 
   if (clientError) {
@@ -108,10 +108,18 @@ export function WalletBalancesGrid() {
                 <li>Delta Exchange API services are operational</li>
               </ul>
             </div>
-            <Button variant="outline" onClick={handleRetry} className="flex items-center gap-2">
-              <RefreshCw className="h-4 w-4" />
-              Retry
-            </Button>
+            <div className="flex flex-wrap gap-2">
+              <Button variant="outline" onClick={handleRetry} className="flex items-center gap-2">
+                <RefreshCw className="h-4 w-4" />
+                Retry
+              </Button>
+              <Button variant="outline" size="sm" className="flex items-center gap-2" asChild>
+                <a href="https://www.india.delta.exchange/app/api-management" target="_blank" rel="noopener noreferrer">
+                  <ExternalLink className="h-4 w-4" />
+                  Check API Keys
+                </a>
+              </Button>
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -157,13 +165,26 @@ export function WalletBalancesGrid() {
                 <li>API key permissions issue</li>
                 <li>Network connectivity problems</li>
                 <li>Server-side issues at Delta Exchange</li>
-                <li>Time synchronization issues between your system and Delta servers</li>
+                <li>High request frequency leading to signature expiration</li>
+                {error?.includes('Signature expired') && (
+                  <li className="text-amber-600 font-medium">
+                    Network latency causing signature expiration (Delta requires signatures to reach servers within 5 seconds)
+                  </li>
+                )}
               </ul>
             </div>
-            <Button variant="outline" onClick={handleRetry} className="flex items-center gap-2">
-              <RefreshCw className="h-4 w-4" />
-              Retry
-            </Button>
+            <div className="flex flex-wrap gap-2">
+              <Button variant="outline" onClick={handleRetry} className="flex items-center gap-2">
+                <RefreshCw className="h-4 w-4" />
+                Retry
+              </Button>
+              <Button variant="outline" size="sm" className="flex items-center gap-2" asChild>
+                <a href="https://www.india.delta.exchange/app/api-management" target="_blank" rel="noopener noreferrer">
+                  <ExternalLink className="h-4 w-4" />
+                  Check API Keys
+                </a>
+              </Button>
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -180,9 +201,7 @@ export function WalletBalancesGrid() {
         <Button 
           variant="outline" 
           size="sm" 
-          onClick={() => {
-            setRetryCount(prev => prev + 1);
-          }}
+          onClick={handleRetry}
           disabled={loading}
         >
           {loading ? <RefreshCw className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
