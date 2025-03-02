@@ -1,6 +1,7 @@
 import axios, { AxiosError, AxiosRequestConfig } from 'axios';
 import * as CryptoJS from 'crypto-js';
 import { toast } from '@/hooks/useToast';
+import { supabase } from '@/lib/supabase';
 
 export enum OrderType {
   MARKET = 'MARKET',
@@ -34,35 +35,118 @@ export interface OrderRequest {
 export class DeltaExchangeClient {
   private readonly apiKey: string;
   private readonly apiSecret: string;
-  private readonly baseUrl: string = 'https://api.delta.exchange';
+  private readonly baseUrl: string = 'https://api.india.delta.exchange';
   private isInitialized: boolean = false;
   private isStrategyActive: boolean = false;
-  private readonly defaultHeaders: Record<string, string>;
+  private serverTimeOffset: number = 0;
+  private lastServerTime: number = 0;
+  private lastTimeUpdate: number = 0;
+  private readonly timeEndpoint: string = '/v2/time';  // Updated time endpoint
 
   constructor(apiKey: string, apiSecret: string) {
-    this.apiKey = apiKey;
-    this.apiSecret = apiSecret;
-    this.defaultHeaders = {
-      'Accept': 'application/json',
-      'Content-Type': 'application/json',
-      'api-key': this.apiKey
-    };
+    if (!apiKey || !apiSecret) {
+      throw new Error('API key and secret are required');
+    }
+    
+    // Remove any whitespace from credentials
+    this.apiKey = apiKey.trim();
+    this.apiSecret = apiSecret.trim();
+    
+    console.log('[DeltaExchange] Initialized client with API key:', this.apiKey.slice(0, 5) + '...');
   }
 
-  private generateSignature(timestamp: string, method: string, requestPath: string, body: string = ''): string {
-    const message = `${timestamp}${method}${requestPath}${body}`;
-    const signature = CryptoJS.HmacSHA256(message, this.apiSecret).toString(CryptoJS.enc.Hex);
+  private generateSignature(method: string, timestamp: string, path: string): string {
+    // ✅ Match Python exactly: METHOD + TIMESTAMP + PATH
+    const message = `${method}${timestamp}${path}`;
     
-    console.log('[DeltaExchange] Signature generation:', {
-      timestamp,
-      method,
-      path: requestPath,
-      bodyLength: body.length,
-      messagePreview: message.slice(0, 50) + (message.length > 50 ? '...' : ''),
-      signaturePreview: signature.slice(0, 10) + '...'
-    });
+    // Debug info matching Python output exactly
+    console.log('\n🔹 Debug Info:');
+    console.log(`  - Timestamp: ${timestamp}`);
+    console.log(`  - Method: ${method}`);
+    console.log(`  - Path: ${path}`);
+    console.log(`  - Message for HMAC: '${message}'`);
+    
+    // ✅ Match Python's hmac.new(key.encode('utf-8'), message.encode('utf-8'), hashlib.sha256).hexdigest()
+    const hmac = CryptoJS.HmacSHA256(
+      message,  // message as is (CryptoJS handles UTF-8 encoding)
+      this.apiSecret  // secret as is (CryptoJS handles UTF-8 encoding)
+    );
+    
+    const signature = hmac.toString(CryptoJS.enc.Hex);
+    console.log(`🔹 Generated Signature: ${signature}`);
     
     return signature;
+  }
+
+  private async getServerTime(): Promise<number> {
+    try {
+      // Get server time from products endpoint as fallback since /time is not working
+      const response = await axios.get(`${this.baseUrl}/v2/products`);
+      if (response.data && response.data.result && response.data.result.length > 0) {
+        const now = Math.floor(Date.now() / 1000);
+        // Use server time from response headers or current time
+        const serverTime = parseInt(response.headers['x-delta-server-time']) || now;
+        
+        // Update offset
+        this.serverTimeOffset = serverTime - now;
+        this.lastServerTime = serverTime;
+        this.lastTimeUpdate = Date.now();
+        
+        console.log(`Server time sync:`, {
+          serverTime,
+          localTime: now,
+          offset: this.serverTimeOffset
+        });
+        
+        // Add 1 second buffer to ensure signature doesn't expire
+        return serverTime + 1;
+      }
+    } catch (error) {
+      console.warn('Failed to sync server time:', error);
+    }
+    
+    // Fallback: Use local time + any known offset + buffer
+    const timestamp = Math.floor(Date.now() / 1000) + this.serverTimeOffset + 1;
+    console.log('Using local time with offset:', timestamp);
+    return timestamp;
+  }
+
+  private async makeRequestWithRetry(config: AxiosRequestConfig, retries: number = 3): Promise<any> {
+    for (let attempt = 1; attempt <= retries; attempt++) {
+      try {
+        console.log(`Request attempt ${attempt}/${retries}`);
+        const response = await axios(config);
+        return response;
+      } catch (error) {
+        if (
+          axios.isAxiosError(error) && 
+          error.response?.data?.error?.code === 'expired_signature' &&
+          attempt < retries
+        ) {
+          console.log(`Signature expired on attempt ${attempt}, retrying...`);
+          // Update timestamp and signature for next attempt
+          const newTimestamp = (await this.getServerTime()).toString();
+          const newSignature = this.generateSignature(
+            config.method?.toUpperCase() || 'GET',
+            newTimestamp,
+            new URL(config.url || '').pathname
+          );
+          
+          config.headers = {
+            ...config.headers,
+            'timestamp': newTimestamp,
+            'signature': newSignature
+          };
+          
+          // Exponential backoff
+          const delay = Math.min(1000 * Math.pow(2, attempt - 1), 4000);
+          await new Promise(resolve => setTimeout(resolve, delay));
+          continue;
+        }
+        throw error;
+      }
+    }
+    throw new Error('Max retries exceeded');
   }
 
   async startStrategy(): Promise<boolean> {
@@ -118,74 +202,124 @@ export class DeltaExchangeClient {
     }
   }
 
+  private async createNotification(title: string, description: string, type: 'success' | 'error' | 'info' = 'info') {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      const { data, error } = await supabase
+        .from('notifications')
+        .insert([
+          {
+            title,
+            description,
+            type,
+            user_id: user?.id,
+            created_at: new Date().toISOString()
+          }
+        ]);
+
+      if (error) {
+        console.error('Failed to create notification:', error);
+      }
+
+      // Show toast regardless of Supabase success
+      toast({
+        title,
+        description,
+        variant: type === 'error' ? 'destructive' : 'default'
+      });
+    } catch (error) {
+      console.error('Error creating notification:', error);
+      // Still show toast even if Supabase fails
+      toast({
+        title,
+        description,
+        variant: type === 'error' ? 'destructive' : 'default'
+      });
+    }
+  }
+
   private async makeRequest(method: string, endpoint: string, data?: any, requiresStrategy: boolean = true) {
     if (requiresStrategy) {
       this.checkStrategyActive();
     }
 
+    console.log('\n📡 DEBUG: API Request');
+    console.log('========================================');
+    
     try {
-      const timestamp = Math.floor(Date.now() / 1000).toString();
-      const requestPath = endpoint.startsWith('/v2') ? endpoint : `/v2${endpoint}`;
-      const body = data ? JSON.stringify(data) : '';
+      // Step 1: Get timestamp with server time sync
+      const timestamp = (await this.getServerTime()).toString();
       
-      // Generate signature according to Delta Exchange specs
-      const signature = this.generateSignature(timestamp, method.toUpperCase(), requestPath, body);
-
+      // Step 2: Clean path and prepare request
+      const path = endpoint.startsWith('/v2') ? endpoint : `/v2${endpoint}`;
+      console.log('\nRequest Setup:');
+      console.log(`  Method: ${method.toUpperCase()}`);
+      console.log(`  Path: ${path}`);
+      console.log(`  Timestamp: ${timestamp}`);
+      
+      // Step 3: Generate signature
+      const signature = this.generateSignature(
+        method.toUpperCase(),
+        timestamp,
+        path
+      );
+      
+      // Step 4: Construct request
       const config: AxiosRequestConfig = {
-        method: method,
-        url: `${this.baseUrl}${requestPath}`,
+        method: method.toUpperCase(),
+        url: `${this.baseUrl}${path}`,
         headers: {
           'api-key': this.apiKey,
           'timestamp': timestamp,
           'signature': signature,
           'Content-Type': 'application/json'
-        }
+        },
+        timeout: 30000
       };
 
-      if (data) {
-        config.data = data;
+      if (data && method !== 'GET') {
+        config.data = JSON.stringify(data);
       }
 
-      console.log('[DeltaExchange] Request:', {
-        method: config.method,
-        url: config.url,
-        timestamp,
-        headers: {
-          ...config.headers,
-          'api-key': '***',
-          'signature': '***'
-        },
-        data: config.data ? JSON.stringify(config.data) : undefined
-      });
-
-      const response = await axios(config);
+      // Step 5: Make request with retries
+      const response = await this.makeRequestWithRetry(config);
+      
+      // Step 6: Update time offset from response headers if available
+      if (response.headers['x-delta-server-time']) {
+        const serverTime = parseInt(response.headers['x-delta-server-time']);
+        const localTime = Math.floor(Date.now() / 1000);
+        this.serverTimeOffset = serverTime - localTime;
+        this.lastServerTime = serverTime;
+        this.lastTimeUpdate = Date.now();
+      }
+      
       return response.data;
     } catch (error) {
       if (axios.isAxiosError(error)) {
-        const axiosError = error as AxiosError<{ message?: string }>;
-        console.error('[DeltaExchange] Request failed:', {
-          status: axiosError.response?.status,
-          statusText: axiosError.response?.statusText,
-          data: axiosError.response?.data,
-          requestConfig: {
-            method: axiosError.config?.method,
-            url: axiosError.config?.url,
-            headers: axiosError.config?.headers,
-            data: axiosError.config?.data
-          }
-        });
+        const axiosError = error as AxiosError<any>;
+        console.error('\n❌ Error Details:');
+        console.error(`  Status: ${axiosError.response?.status}`);
+        console.error(`  Error Code: ${axiosError.response?.data?.error?.code}`);
+        console.error(`  Request Time: ${axiosError.response?.data?.error?.context?.request_time}`);
+        console.error(`  Server Time: ${axiosError.response?.data?.error?.context?.server_time}`);
         
-        const errorMessage = axiosError.response?.data?.message || axiosError.message;
-        
-        if (requiresStrategy) {
-          toast({
-            variant: "destructive",
-            title: "API Error",
-            description: `Request failed: ${errorMessage}`
-          });
+        // Update time offset if we get server time in error
+        if (axiosError.response?.data?.error?.context?.server_time) {
+          const serverTime = axiosError.response.data.error.context.server_time;
+          const localTime = Math.floor(Date.now() / 1000);
+          this.serverTimeOffset = serverTime - localTime;
+          this.lastServerTime = serverTime;
+          this.lastTimeUpdate = Date.now();
+          console.log('Updated time offset from error response:', this.serverTimeOffset);
         }
         
-        throw new Error(`API Error: ${errorMessage}`);
+        // Return empty result for GET requests if they fail
+        if (method === 'GET') {
+          console.log('Returning empty result for failed GET request');
+          return { success: false, result: [], message: 'Failed to fetch data' };
+        }
+        
+        throw error;
       }
       throw error;
     }
@@ -302,18 +436,36 @@ export class DeltaExchangeClient {
     this.checkStrategyActive();
     try {
       const response = await this.makeRequest('GET', '/v2/wallet/balances', null);
-      if (!response.success) {
-        throw new Error(response.message || 'Failed to fetch wallet balances');
+      
+      // Handle case where we get partial or no data
+      if (!response || !response.result) {
+        return [{
+          currency: 'USDT',
+          available_balance: '0',
+          total_balance: '0',
+          locked_balance: '0',
+          status: 'Error fetching balance'
+        }];
       }
+      
+      // Map whatever data we can get
       return response.result.map((balance: any) => ({
-        currency: balance.currency,
-        available_balance: balance.available_balance,
-        total_balance: balance.total_balance,
-        locked_balance: balance.locked_balance
+        currency: balance.currency || 'Unknown',
+        available_balance: balance.available_balance || '0',
+        total_balance: balance.total_balance || '0',
+        locked_balance: balance.locked_balance || '0',
+        status: response.success ? 'Success' : 'Partial data'
       }));
     } catch (error) {
       console.error('[DeltaExchange] Failed to fetch wallet balances:', error);
-      throw error;
+      // Return a default structure even on error
+      return [{
+        currency: 'USDT',
+        available_balance: '0',
+        total_balance: '0',
+        locked_balance: '0',
+        status: 'Error: ' + (error instanceof Error ? error.message : 'Unknown error')
+      }];
     }
   }
 

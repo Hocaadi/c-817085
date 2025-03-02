@@ -14,6 +14,7 @@ import ProtectedRoute from '@/components/ProtectedRoute';
 import { ClerkProvider } from "@clerk/clerk-react";
 import { TradingProvider } from '@/contexts/TradingContext';
 import { ToastProvider } from "@/components/ui/toast";
+import WalletBalancesPage from '@/pages/wallet-balances';
 
 const clerkPubKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
 
@@ -64,6 +65,11 @@ const App = () => {
                     <Route path="notifications" element={
                       <ProtectedRoute>
                         <NotificationsPage />
+                      </ProtectedRoute>
+                    } />
+                    <Route path="wallet-balances" element={
+                      <ProtectedRoute>
+                        <WalletBalancesPage />
                       </ProtectedRoute>
                     } />
                     <Route path="*" element={<Navigate to="/" replace />} />
