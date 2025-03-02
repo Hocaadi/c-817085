@@ -573,10 +573,27 @@ export class DeltaExchangeClient {
     return product.id;
   }
 
-  async getPositions() {
-    this.checkStrategyActive();
-    const response = await this.makeRequest('GET', '/positions');
-    return response.result || [];
+  /**
+   * Fetches positions from the Delta Exchange API
+   * @returns Array of positions
+   */
+  async getPositions(requireStrategy: boolean = false): Promise<any[]> {
+    if (requireStrategy) {
+      this.checkStrategyActive();
+    }
+    
+    console.log(`[${new Date().toISOString()}] Fetching positions from Delta Exchange API`);
+    
+    try {
+      // Use the makeRequest method which properly handles authentication
+      const response = await this.makeRequest('GET', '/positions', null, requireStrategy);
+      console.log(`[${new Date().toISOString()}] Successfully fetched positions`);
+      
+      return response.result || [];
+    } catch (error) {
+      console.error('Error fetching positions:', error);
+      throw error;
+    }
   }
 
   async getBalance() {

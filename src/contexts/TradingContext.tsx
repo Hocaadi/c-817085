@@ -5,6 +5,7 @@ import { DeltaExchangeClient } from '@/trading/core/DeltaExchangeClient';
 import { useAuth } from '@clerk/clerk-react';
 import { toast } from '@/hooks/useToast';
 import { Strategy, Position } from '@/lib/supabase';
+import { DELTA_EXCHANGE_CREDENTIALS } from '@/config/api-credentials';
 
 interface RiskMetrics {
   currentDrawdown: number;
@@ -31,9 +32,6 @@ const defaultRiskMetrics: RiskMetrics = {
 
 const TradingContext = createContext<TradingContextType | undefined>(undefined);
 
-const DELTA_API_KEY = '1mbsfq46ryz0flQOhhe9QrdpWrOzdz';
-const DELTA_API_SECRET = 'h84TwZ1qrljLCDwT1vnkBLMsp7WEKv8K3kDeqIqD0CQW4ht2yACtu0UU1aCJ';
-
 export function TradingProvider({ children }: { children: React.ReactNode }) {
   const { userId } = useAuth();
   const [activeStrategies, setActiveStrategies] = useState<Strategy[]>([]);
@@ -45,7 +43,8 @@ export function TradingProvider({ children }: { children: React.ReactNode }) {
     if (!userId) return null;
 
     try {
-      const deltaClient = new DeltaExchangeClient(DELTA_API_KEY, DELTA_API_SECRET);
+      const { apiKey, apiSecret } = DELTA_EXCHANGE_CREDENTIALS;
+      const deltaClient = new DeltaExchangeClient(apiKey, apiSecret);
       const dbService = new DatabaseService();
       const monitor = new StrategyMonitor(deltaClient, dbService, userId, 'session-1');
       

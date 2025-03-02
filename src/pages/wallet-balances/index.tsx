@@ -4,12 +4,11 @@ import { WalletBalancesGrid } from '@/components/WalletBalancesGrid';
 import { Card } from '@/components/ui/card';
 import { DeltaClientProvider } from '@/components/DeltaClientProvider';
 import { useEffect } from 'react';
+import { DELTA_EXCHANGE_CREDENTIALS } from '@/config/api-credentials';
 
 export default function WalletBalancesPage() {
-  // API keys - in production these should be properly secured
-  // Using known working keys for testing
-  const apiKey = "1mbsfq46ryz0flQOhhe9QrdpWrOzdz";
-  const apiSecret = "h84TwZ1qrljLCDwT1vnkBLMsp7WEKv8K3kDeqIqD0CQW4ht2yACtu0UU1aCJ";
+  // Get credentials from the centralized config
+  const { apiKey, apiSecret } = DELTA_EXCHANGE_CREDENTIALS;
 
   useEffect(() => {
     console.log('WalletBalancesPage mounted');

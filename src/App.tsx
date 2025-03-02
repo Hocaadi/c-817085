@@ -16,6 +16,7 @@ import { TradingProvider } from '@/contexts/TradingContext';
 import { ToastProvider } from "@/components/ui/toast";
 import WalletBalancesPage from '@/pages/wallet-balances/index';
 import DiagnosticPage from '@/pages/wallet-balances/diagnostic';
+import PositionsPage from '@/pages/positions/index';
 
 const clerkPubKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
 
@@ -72,9 +73,14 @@ const App = () => {
                         <NotificationsPage />
                       </ProtectedRoute>
                     } />
-                    <Route path="wallet-balances" element={
+                    <Route path="/wallet-balances" element={
                       <ProtectedRoute>
                         <WalletBalancesPage />
+                      </ProtectedRoute>
+                    } />
+                    <Route path="/positions" element={
+                      <ProtectedRoute>
+                        <PositionsPage />
                       </ProtectedRoute>
                     } />
                     <Route path="wallet-balances/diagnostic" element={

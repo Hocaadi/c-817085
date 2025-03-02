@@ -9,10 +9,16 @@ import { Loader2 } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { DeltaExchangeClient } from '@/trading/core/DeltaExchangeClient';
+import { AlertCircle, CheckCircle2, Info } from 'lucide-react';
+import { useToast } from '@/components/ui/use-toast';
+import { Switch } from '@/components/ui/switch';
+import { DELTA_EXCHANGE_CREDENTIALS } from '@/config/api-credentials';
 
 export default function DiagnosticPage() {
+  const { toast } = useToast();
   const [apiKey, setApiKey] = useState<string>('');
   const [apiSecret, setApiSecret] = useState<string>('');
+  const [useStoredCredentials, setUseStoredCredentials] = useState(true);
   const [baseUrl, setBaseUrl] = useState<string>('https://api.india.delta.exchange');
   const [loading, setLoading] = useState<boolean>(false);
   const [result, setResult] = useState<any>(null);
@@ -52,14 +58,22 @@ export default function DiagnosticPage() {
     setLogs([]);
   };
   
-  const verifyApiCredentials = async () => {
+  const handleRunTest = async () => {
     clearLogs();
     setLoading(true);
     setResult(null);
     setError(null);
     
     try {
-      const client = new DeltaExchangeClient(apiKey, apiSecret, baseUrl);
+      // Use the stored credentials if the user selected that option
+      const finalApiKey = useStoredCredentials ? DELTA_EXCHANGE_CREDENTIALS.apiKey : apiKey;
+      const finalApiSecret = useStoredCredentials ? DELTA_EXCHANGE_CREDENTIALS.apiSecret : apiSecret;
+      
+      if (!finalApiKey || !finalApiSecret) {
+        throw new Error('API key and secret are required');
+      }
+      
+      const client = new DeltaExchangeClient(finalApiKey, finalApiSecret, baseUrl);
       setLogs(prev => [...prev, `[TEST] Created client with API endpoint: ${baseUrl}`]);
       
       // Verify API credentials
@@ -107,44 +121,71 @@ export default function DiagnosticPage() {
             </CardHeader>
             
             <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="apiKey">API Key</Label>
-                <Input 
-                  id="apiKey"
-                  value={apiKey}
-                  onChange={(e) => setApiKey(e.target.value)}
-                  placeholder="Your Delta Exchange API Key"
+              <div className="flex items-center space-x-2 pb-4">
+                <Switch
+                  id="use-stored-credentials"
+                  checked={useStoredCredentials}
+                  onCheckedChange={setUseStoredCredentials}
                 />
+                <Label htmlFor="use-stored-credentials">
+                  Use stored API credentials
+                </Label>
               </div>
-              
+
+              {!useStoredCredentials && (
+                <>
+                  <div className="space-y-2">
+                    <Label htmlFor="apiKey">API Key</Label>
+                    <Input
+                      id="apiKey"
+                      value={apiKey}
+                      onChange={(e) => setApiKey(e.target.value)}
+                      placeholder="Your Delta Exchange API Key"
+                      disabled={loading || useStoredCredentials}
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="apiSecret">API Secret</Label>
+                    <Input
+                      id="apiSecret"
+                      value={apiSecret}
+                      onChange={(e) => setApiSecret(e.target.value)}
+                      type="password"
+                      placeholder="Your Delta Exchange API Secret"
+                      disabled={loading || useStoredCredentials}
+                    />
+                  </div>
+                </>
+              )}
+
+              {useStoredCredentials && (
+                <div className="bg-muted p-4 rounded-md">
+                  <div className="flex items-center space-x-2">
+                    <Info className="h-5 w-5 text-blue-500" />
+                    <p className="text-sm">Using stored API credentials from config file.</p>
+                  </div>
+                  <p className="text-sm text-muted-foreground mt-2">
+                    API Key: {DELTA_EXCHANGE_CREDENTIALS.apiKey.substring(0, 5)}...
+                  </p>
+                </div>
+              )}
+
               <div className="space-y-2">
-                <Label htmlFor="apiSecret">API Secret</Label>
-                <Input 
-                  id="apiSecret"
-                  type="password"
-                  value={apiSecret}
-                  onChange={(e) => setApiSecret(e.target.value)}
-                  placeholder="Your Delta Exchange API Secret"
-                />
-              </div>
-              
-              <div className="space-y-2">
-                <Label htmlFor="baseUrl">API Base URL</Label>
-                <Input 
+                <Label htmlFor="baseUrl">API Endpoint</Label>
+                <Input
                   id="baseUrl"
                   value={baseUrl}
                   onChange={(e) => setBaseUrl(e.target.value)}
-                  placeholder="API Base URL"
+                  placeholder="API Endpoint URL"
+                  disabled={loading}
                 />
-                <p className="text-xs text-muted-foreground">
-                  Use https://api.india.delta.exchange for India region or https://api.delta.exchange for global
-                </p>
               </div>
             </CardContent>
             
             <CardFooter className="flex justify-between">
               <Button variant="outline" onClick={clearLogs}>Clear Logs</Button>
-              <Button onClick={verifyApiCredentials} disabled={loading}>
+              <Button onClick={handleRunTest} disabled={loading}>
                 {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Verify Credentials
               </Button>

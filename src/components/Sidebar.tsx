@@ -1,22 +1,12 @@
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, LineChart, Bell, User, Wallet } from 'lucide-react';
+import { BarChart3, Home, LineChart, Bell, User, Wallet, Settings } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-const sidebarLinks = [
+const links = [
   {
     title: "Dashboard",
-    href: "/dashboard",
-    icon: LayoutDashboard,
-  },
-  {
-    title: "Trading",
-    href: "/trading",
-    icon: LineChart,
-  },
-  {
-    title: "Notifications",
-    href: "/notifications",
-    icon: Bell,
+    href: "/",
+    icon: Home,
   },
   {
     title: "Wallet Balances",
@@ -24,9 +14,24 @@ const sidebarLinks = [
     icon: Wallet,
   },
   {
+    title: "Positions",
+    href: "/positions",
+    icon: LineChart,
+  },
+  {
     title: "Profile",
     href: "/profile",
     icon: User,
+  },
+  {
+    title: "Settings",
+    href: "/settings",
+    icon: Settings,
+  },
+  {
+    title: "Notifications",
+    href: "/notifications",
+    icon: Bell,
   },
 ];
 
@@ -37,7 +42,7 @@ function Sidebar() {
         <h1 className="text-xl font-bold">Crypto Hub</h1>
       </div>
       <nav className="space-y-1 px-4">
-        {sidebarLinks.map((link) => (
+        {links.map((link) => (
           <NavLink
             key={link.href}
             to={link.href}
@@ -59,5 +64,5 @@ function Sidebar() {
   );
 }
 
-export { Sidebar, sidebarLinks };
+export { Sidebar, links };
 export default Sidebar; 

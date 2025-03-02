@@ -3,18 +3,19 @@
 import { WalletBalancesGrid } from "@/components/WalletBalancesGrid";
 import { ProductsGrid } from "@/components/ProductsGrid";
 import { DeltaClientProvider } from "@/components/DeltaClientProvider";
+import { DELTA_EXCHANGE_CREDENTIALS } from '@/config/api-credentials';
 
 export default function DashboardPage() {
-  // Get API keys from environment variables
-  const apiKey = process.env.NEXT_PUBLIC_DELTA_API_KEY || '';
-  const apiSecret = process.env.NEXT_PUBLIC_DELTA_API_SECRET || '';
-  
+  // Get API keys from centralized configuration
+  const { apiKey, apiSecret } = DELTA_EXCHANGE_CREDENTIALS;
+
   return (
     <DeltaClientProvider apiKey={apiKey} apiSecret={apiSecret}>
-      <div className="container mx-auto p-4 space-y-4">
-        <h1 className="text-2xl font-bold mb-4">Dashboard</h1>
-        <WalletBalancesGrid />
-        <ProductsGrid />
+      <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          <ProductsGrid showTradingControls={true} />
+          <WalletBalancesGrid />
+        </div>
       </div>
     </DeltaClientProvider>
   );
