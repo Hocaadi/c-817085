@@ -33,6 +33,10 @@ const queryClient = new QueryClient({
   },
 });
 
+// Determine basename based on environment
+const isProduction = import.meta.env.MODE === 'production';
+const basename = isProduction ? '/c-817085' : '';
+
 const App = () => {
   return (
     <ClerkProvider publishableKey={clerkPubKey}>
@@ -41,7 +45,7 @@ const App = () => {
           <TooltipProvider>
             <Toaster />
             <Sonner />
-            <BrowserRouter basename="/c-817085">
+            <BrowserRouter basename={basename}>
               <TradingProvider>
                 <Routes>
                   <Route path="/" element={<Layout />}>

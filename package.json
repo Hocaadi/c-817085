@@ -5,7 +5,7 @@
   "homepage": "https://hocaadi.github.io/c-817085",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "vite --port 8080",
     "build": "tsc && vite build",
     "build:ignore-ts": "vite build",
     "build:github": "VITE_SKIP_TS_CHECK=true vite build --mode production",

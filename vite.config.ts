@@ -9,9 +9,13 @@ export default defineConfig(({ mode }) => {
   console.log(`Building with mode: ${mode}`);
   console.log(`TypeScript checks: ${env.VITE_SKIP_TS_CHECK === 'true' ? 'DISABLED' : 'ENABLED'}`);
 
+  // Only use the GitHub Pages base path in production mode
+  const base = mode === 'production' ? '/c-817085/' : '/';
+  console.log(`Using base path: ${base}`);
+
   return {
     plugins: [react()],
-    base: '/c-817085/',
+    base: base, // Conditionally apply base path
     resolve: {
       alias: {
         '@': path.resolve(__dirname, './src'),
@@ -42,7 +46,7 @@ export default defineConfig(({ mode }) => {
       },
     },
     server: {
-      port: 3000,
+      port: 8080, // Change to 8080 to match what you're trying to access
       host: true,
     },
   };
