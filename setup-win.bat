@@ -11,6 +11,12 @@ echo Installing dependencies...
 npm install
 
 echo.
+echo *** IMPORTANT: Supabase Configuration ***
+echo You need to manually add your Supabase credentials to the .env file:
+echo.
+echo VITE_SUPABASE_URL=your_supabase_url
+echo VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
+echo.
 echo Setup complete! You can now run the development server with:
 echo npm run dev
 echo.
@@ -34,9 +40,13 @@ echo # API configuration
 echo VITE_API_URL=https://api.india.delta.exchange
 echo VITE_WEBSOCKET_URL=wss://ws.india.delta.exchange
 echo.
+echo # Supabase configuration - ADD YOUR CREDENTIALS HERE
+echo # VITE_SUPABASE_URL=your_supabase_url_here
+echo # VITE_SUPABASE_ANON_KEY=your_supabase_anon_key_here
+echo.
 echo # Feature flags
 echo VITE_ENABLE_MOCK_API=false
 echo VITE_ENABLE_DEBUG_LOGGING=true
 ) > .env
 echo .env file created successfully.
-exit /b 0 
+exit /b 0

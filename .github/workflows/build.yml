@@ -60,6 +60,13 @@ jobs:
           VITE_API_URL=https://api.india.delta.exchange
           VITE_WEBSOCKET_URL=wss://ws.india.delta.exchange
           
+          # Supabase configuration
+          VITE_SUPABASE_URL=${SUPABASE_URL:-https://placeholder-url.supabase.co}
+          VITE_SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY:-placeholder-anon-key}
+          
+          # Clerk configuration (if needed)
+          VITE_CLERK_PUBLISHABLE_KEY=${CLERK_KEY:-pk_placeholder}
+          
           # Feature flags
           VITE_ENABLE_MOCK_API=false
           VITE_ENABLE_DEBUG_LOGGING=false
@@ -80,6 +87,11 @@ jobs:
           VITE_SKIP_TS_CHECK: true
           ESLINT_NO_DEV_ERRORS: true
           CI: false
+          # Supabase environment variables
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL || 'https://placeholder-url.supabase.co' }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY || 'placeholder-anon-key' }}
+          # Clerk environment variables
+          VITE_CLERK_PUBLISHABLE_KEY: ${{ secrets.VITE_CLERK_PUBLISHABLE_KEY || 'pk_placeholder' }}
           # Increase memory limit to prevent OOM issues
           NODE_OPTIONS: --max-old-space-size=4096
 
@@ -129,4 +141,4 @@ jobs:
         uses: JamesIves/github-pages-deploy-action@v4
         with:
           folder: dist
-          branch: gh-pages 
+          branch: gh-pages
