@@ -13,6 +13,9 @@ declare module 'input-otp' {
   export interface OTPInputProps {
     maxLength?: number
     children: React.ReactNode
+    className?: string
+    containerClassName?: string
+    ref?: React.ForwardedRef<any>
   }
 
   // Define the OTPInputContext
@@ -20,6 +23,7 @@ declare module 'input-otp' {
     value: string
     onChange: (value: string) => void
     maxLength: number
+    slots: React.ReactNode[]
   }
 
   // Define the provider props

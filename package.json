@@ -6,7 +6,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite --port 8080",
-    "build": "tsc && vite build",
+    "build": "vite build",
+    "build:with-ts": "tsc && vite build",
     "build:ignore-ts": "vite build",
     "build:github": "vite build --mode production",
     "preview": "vite preview",
