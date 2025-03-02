@@ -41,39 +41,40 @@ export class DeltaExchangeClient {
   private serverTimeOffset: number = 0;
   private lastServerTime: number = 0;
   private lastTimeUpdate: number = 0;
-  private readonly timeEndpoint: string = '/v2/time';  // Updated time endpoint
+  private readonly timeEndpoint: string = '/v2/time';
 
   constructor(apiKey: string, apiSecret: string) {
     if (!apiKey || !apiSecret) {
       throw new Error('API key and secret are required');
     }
     
-    // Remove any whitespace from credentials
     this.apiKey = apiKey.trim();
     this.apiSecret = apiSecret.trim();
     
     console.log('[DeltaExchange] Initialized client with API key:', this.apiKey.slice(0, 5) + '...');
   }
 
-  private generateSignature(method: string, timestamp: string, path: string): string {
-    // ✅ Match Python exactly: METHOD + TIMESTAMP + PATH
-    const message = `${method}${timestamp}${path}`;
+  private generateSignature(method: string, timestamp: string, path: string, data?: any): string {
+    // For GET requests with query params, they should be part of the path
+    let message = `${method}${timestamp}${path}`;
     
-    // Debug info matching Python output exactly
-    console.log('\n🔹 Debug Info:');
-    console.log(`  - Timestamp: ${timestamp}`);
-    console.log(`  - Method: ${method}`);
-    console.log(`  - Path: ${path}`);
-    console.log(`  - Message for HMAC: '${message}'`);
+    // For POST/PUT/DELETE requests, include request body in signature
+    if (data && method !== 'GET') {
+      message += JSON.stringify(data);
+    }
     
-    // ✅ Match Python's hmac.new(key.encode('utf-8'), message.encode('utf-8'), hashlib.sha256).hexdigest()
-    const hmac = CryptoJS.HmacSHA256(
-      message,  // message as is (CryptoJS handles UTF-8 encoding)
-      this.apiSecret  // secret as is (CryptoJS handles UTF-8 encoding)
-    );
+    // Debug info
+    console.log('\n🔹 Signature Generation:');
+    console.log(`  Method: ${method}`);
+    console.log(`  Timestamp: ${timestamp}`);
+    console.log(`  Path: ${path}`);
+    console.log(`  Data: ${data ? JSON.stringify(data) : 'none'}`);
+    console.log(`  Message: ${message}`);
     
+    const hmac = CryptoJS.HmacSHA256(message, this.apiSecret);
     const signature = hmac.toString(CryptoJS.enc.Hex);
-    console.log(`🔹 Generated Signature: ${signature}`);
+    
+    console.log(`  Signature: ${signature}`);
     
     return signature;
   }
@@ -129,7 +130,8 @@ export class DeltaExchangeClient {
           const newSignature = this.generateSignature(
             config.method?.toUpperCase() || 'GET',
             newTimestamp,
-            new URL(config.url || '').pathname
+            new URL(config.url || '').pathname,
+            config.data
           );
           
           config.headers = {
@@ -247,24 +249,17 @@ export class DeltaExchangeClient {
     console.log('========================================');
     
     try {
-      // Step 1: Get timestamp with server time sync
       const timestamp = (await this.getServerTime()).toString();
-      
-      // Step 2: Clean path and prepare request
       const path = endpoint.startsWith('/v2') ? endpoint : `/v2${endpoint}`;
-      console.log('\nRequest Setup:');
-      console.log(`  Method: ${method.toUpperCase()}`);
-      console.log(`  Path: ${path}`);
-      console.log(`  Timestamp: ${timestamp}`);
       
-      // Step 3: Generate signature
+      // Generate signature with request data
       const signature = this.generateSignature(
         method.toUpperCase(),
         timestamp,
-        path
+        path,
+        data
       );
       
-      // Step 4: Construct request
       const config: AxiosRequestConfig = {
         method: method.toUpperCase(),
         url: `${this.baseUrl}${path}`,
@@ -277,14 +272,18 @@ export class DeltaExchangeClient {
         timeout: 30000
       };
 
-      if (data && method !== 'GET') {
-        config.data = JSON.stringify(data);
+      if (data) {
+        if (method === 'GET') {
+          config.params = data;
+        } else {
+          config.data = JSON.stringify(data);
+        }
       }
 
-      // Step 5: Make request with retries
+      // Make request with retries
       const response = await this.makeRequestWithRetry(config);
       
-      // Step 6: Update time offset from response headers if available
+      // Update time offset from response headers
       if (response.headers['x-delta-server-time']) {
         const serverTime = parseInt(response.headers['x-delta-server-time']);
         const localTime = Math.floor(Date.now() / 1000);

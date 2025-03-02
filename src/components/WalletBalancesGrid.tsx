@@ -11,6 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useDeltaClient } from '@/components/DeltaClientProvider';
+import { AlertCircle } from 'lucide-react';
 
 interface Balance {
   currency: string;
@@ -21,23 +22,19 @@ interface Balance {
 }
 
 export function WalletBalancesGrid() {
-  const client = useDeltaClient();
+  const { client, isInitialized, error: clientError } = useDeltaClient();
   const [balances, setBalances] = useState<Balance[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [isInitialized, setIsInitialized] = useState(false);
 
   useEffect(() => {
-    const initializeAndFetch = async () => {
+    const fetchBalances = async () => {
+      if (!client || !isInitialized) {
+        return;
+      }
+
       try {
         setLoading(true);
-        
-        // Initialize client if not already initialized
-        if (!isInitialized) {
-          await client.startStrategy();
-          setIsInitialized(true);
-        }
-        
         const response = await client.getBalance();
         setBalances(response);
         setError(null);
@@ -49,10 +46,26 @@ export function WalletBalancesGrid() {
       }
     };
 
-    initializeAndFetch();
+    fetchBalances();
   }, [client, isInitialized]);
 
-  if (loading) {
+  if (clientError) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Wallet Balances</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center gap-2 text-red-500">
+            <AlertCircle className="h-5 w-5" />
+            <div>Error: {clientError}</div>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (loading || !isInitialized) {
     return (
       <Card>
         <CardHeader>
@@ -76,7 +89,10 @@ export function WalletBalancesGrid() {
           <CardTitle>Wallet Balances</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="text-red-500">Error: {error}</div>
+          <div className="flex items-center gap-2 text-red-500">
+            <AlertCircle className="h-5 w-5" />
+            <div>Error: {error}</div>
+          </div>
         </CardContent>
       </Card>
     );
