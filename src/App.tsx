@@ -15,6 +15,7 @@ import { ClerkProvider } from "@clerk/clerk-react";
 import { TradingProvider } from '@/contexts/TradingContext';
 import { ToastProvider } from "@/components/ui/toast";
 import WalletBalancesPage from '@/pages/wallet-balances/index';
+import DiagnosticPage from '@/pages/wallet-balances/diagnostic';
 
 const clerkPubKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
 
@@ -70,6 +71,16 @@ const App = () => {
                     <Route path="wallet-balances" element={
                       <ProtectedRoute>
                         <WalletBalancesPage />
+                      </ProtectedRoute>
+                    } />
+                    <Route path="wallet-balances/diagnostic" element={
+                      <ProtectedRoute>
+                        <DiagnosticPage />
+                      </ProtectedRoute>
+                    } />
+                    <Route path="diagnostic" element={
+                      <ProtectedRoute>
+                        <DiagnosticPage />
                       </ProtectedRoute>
                     } />
                     <Route path="*" element={<Navigate to="/" replace />} />
