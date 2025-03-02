@@ -8,8 +8,9 @@
     "dev": "vite",
     "build": "tsc && vite build",
     "build:ignore-ts": "vite build",
+    "build:github": "VITE_SKIP_TS_CHECK=true vite build --mode production",
     "preview": "vite preview",
-    "predeploy": "npm run build:ignore-ts",
+    "predeploy": "npm run build:github",
     "deploy": "gh-pages -d dist --dotfiles true"
   },
   "dependencies": {
