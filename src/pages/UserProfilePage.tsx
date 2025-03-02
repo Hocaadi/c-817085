@@ -29,11 +29,12 @@ const UserProfilePage = () => {
                 alertTextDanger: "text-destructive",
               },
               layout: {
-                showNavbar: true,
                 logoPlacement: "none",
                 logoImageUrl: "",
               },
             }}
+            path="/user"
+            routing="path"
           />
         </div>
       </div>

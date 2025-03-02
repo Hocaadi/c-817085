@@ -1,11 +1,8 @@
-import { useUser } from "@clerk/clerk-react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 
 const UserSettingsPage = () => {
-  const { user } = useUser();
-
   return (
     <div className="min-h-screen bg-background p-8">
       <div className="max-w-4xl mx-auto">

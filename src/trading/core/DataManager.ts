@@ -13,7 +13,7 @@ export class DataManager {
   private cache: Map<string, Map<string, CandleData[]>> = new Map();
   private readonly CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 
-  async getCandles(symbol: string, timeframe: string, limit: number = 100): Promise<CandleData[]> {
+  async getCandles(symbol: string, timeframe: string): Promise<CandleData[]> {
     const cacheKey = `${symbol}-${timeframe}`;
     const cachedData = this.cache.get(cacheKey)?.get('data');
     const lastUpdate = this.cache.get(cacheKey)?.get('lastUpdate')?.[0]?.timestamp;
@@ -43,7 +43,7 @@ export class DataManager {
   }
 
   private getDaysFromTimeframe(timeframe: string): number {
-    const map = {
+    const map: Record<string, number> = {
       '1m': 1,
       '5m': 1,
       '15m': 1,
@@ -70,7 +70,17 @@ export class DataManager {
     if (!this.cache.has(key)) {
       this.cache.set(key, new Map());
     }
-    this.cache.get(key).set('data', data);
-    this.cache.get(key).set('lastUpdate', [{ timestamp: Date.now() }]);
+    const cacheMap = this.cache.get(key);
+    if (cacheMap) {
+      cacheMap.set('data', data);
+      cacheMap.set('lastUpdate', [{ 
+        timestamp: Date.now(),
+        open: 0,
+        high: 0,
+        low: 0,
+        close: 0,
+        volume: 0
+      }]);
+    }
   }
 } 
