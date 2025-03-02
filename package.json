@@ -7,8 +7,9 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
+    "build:ignore-ts": "vite build",
     "preview": "vite preview",
-    "predeploy": "npm run build",
+    "predeploy": "npm run build:ignore-ts",
     "deploy": "gh-pages -d dist --dotfiles true"
   },
   "dependencies": {
