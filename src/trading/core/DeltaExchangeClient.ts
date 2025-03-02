@@ -3,6 +3,10 @@ import * as CryptoJS from 'crypto-js';
 import { toast } from '@/hooks/useToast';
 import { supabase } from '@/lib/supabase';
 
+// Configuration for proxy usage
+const USE_PROXY = true; // Set to true to use the proxy server
+const PROXY_URL = 'http://localhost:3000/api'; // The URL of our proxy server
+
 export enum OrderType {
   MARKET = 'MARKET',
   LIMIT = 'LIMIT'
@@ -36,17 +40,31 @@ export class DeltaExchangeClient {
   private readonly apiKey: string;
   private readonly apiSecret: string;
   private readonly baseUrl: string;
+  private readonly useProxy: boolean;
   private isInitialized: boolean = false;
   private isStrategyActive: boolean = false;
 
-  constructor(apiKey: string, apiSecret: string, baseUrl: string = 'https://api.india.delta.exchange') {
+  constructor(
+    apiKey: string, 
+    apiSecret: string, 
+    baseUrl: string = 'https://api.india.delta.exchange',
+    useProxy: boolean = USE_PROXY
+  ) { 
     if (!apiKey || !apiSecret) {
       throw new Error('API key and secret are required');
     }
-    
+
     this.apiKey = apiKey.trim();
     this.apiSecret = apiSecret.trim();
-    this.baseUrl = baseUrl.trim();
+    this.useProxy = useProxy;
+    
+    // If using proxy, change the base URL to the proxy URL
+    this.baseUrl = useProxy ? PROXY_URL : baseUrl.trim();
+    
+    console.log(`[DeltaExchangeClient] Initialized with ${useProxy ? 'proxy mode' : 'direct mode'}`);
+    if (useProxy) {
+      console.log(`[DeltaExchangeClient] Using proxy at: ${PROXY_URL}`);
+    }
     
     console.log(`[DeltaExchange] Initialized client with API endpoint: ${this.baseUrl}`);
     console.log(`[DeltaExchange] Using API key: ${this.apiKey.substring(0, 4)}...${this.apiKey.substring(this.apiKey.length - 4)}`);
@@ -278,76 +296,99 @@ export class DeltaExchangeClient {
     console.log('========================================');
     console.log(`🔑 Using API Key: ${this.apiKey.substring(0, 4)}...${this.apiKey.substring(this.apiKey.length - 4)}`);
     console.log(`🌐 Base URL: ${this.baseUrl}`);
-    
+    console.log(`🔗 Proxy Mode: ${this.useProxy ? 'Enabled' : 'Disabled'}`);
+
     try {
       // No time sync needed - using local time
-      
+
       // Ensure endpoint is properly formatted
       const path = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
-      
+
       // Standardize path format - ensure it has /v2 prefix for most endpoints
       // But don't add it if it's already there
       const fullPath = path.startsWith('/v2') ? path : `/v2${path}`;
-      
-      console.log(`📍 Endpoint: ${fullPath}`);
-      
-      // Get timestamp - using local time with buffer
-      const timestamp = this.getTimestamp();
-      
-      // Generate signature with method, timestamp, and path only
-      const signature = this.generateSignature(
-        method.toUpperCase(),
-        timestamp,
-        fullPath
-      );
-      
-      // Construct request with the exact headers required by Delta Exchange
-      const config: AxiosRequestConfig = {
-        method: method.toUpperCase(),
-        url: `${this.baseUrl}${fullPath}`,
-        headers: {
-          'api-key': this.apiKey,
-          'timestamp': timestamp,
-          'signature': signature,
-          'Content-Type': 'application/json'
-        },
-        timeout: 30000
-      };
 
-      if (data) {
-        if (method.toUpperCase() === 'GET') {
-          config.params = data;
-        } else {
-          config.data = JSON.stringify(data);
-        }
+      console.log(`📍 Endpoint: ${fullPath}`);
+
+      // Prepare the request config differently based on proxy mode
+      let config: AxiosRequestConfig;
+
+      if (this.useProxy) {
+        // When using proxy, we don't need to add Delta Exchange authentication
+        // The proxy will handle that for us
+        config = {
+          method,
+          url: `${this.baseUrl}${fullPath}`,
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          data: method !== 'GET' ? data : undefined,
+          params: method === 'GET' ? data : undefined,
+        };
+      } else {
+        // Direct mode - use the normal Delta Exchange authentication
+        // Generate timestamp with small buffer to account for network latency
+        const timestamp = this.getTimestamp();
+        
+        // Generate the signature
+        const signature = this.generateSignature(timestamp, fullPath, method !== 'GET' ? data : '');
+        
+        config = {
+          method,
+          url: `${this.baseUrl}${fullPath}`,
+          headers: {
+            'Content-Type': 'application/json',
+            'API-Key': this.apiKey,
+            'timestamp': timestamp,
+            'signature': signature,
+          },
+          data: method !== 'GET' ? data : undefined,
+          params: method === 'GET' ? data : undefined,
+        };
       }
 
       console.log(`[DeltaExchange] Making ${method.toUpperCase()} request to ${fullPath}`);
       
-      // Make request with automatic retry for expired signatures
+      // Log request details for debugging
+      console.log(`📤 Request Method: ${method}`);
+      console.log(`📦 Request payload:`, data ? JSON.stringify(data, null, 2) : 'No payload');
+      
+      // Use our general retry mechanism
       const response = await this.makeRequestWithRetry(config);
       return response.data;
     } catch (error) {
+      console.error('❌ Error in makeRequest:', error);
+      
       if (axios.isAxiosError(error)) {
-        const axiosError = error as AxiosError<any>;
-        console.error('\n❌ Error Details:');
-        console.error(`  Status: ${axiosError.response?.status}`);
-        console.error(`  Error Code: ${axiosError.response?.data?.error?.code}`);
-        console.error(`  Message: ${axiosError.response?.data?.error?.message || axiosError.message}`);
+        const axiosError = error as AxiosError;
+        console.error(`Status: ${axiosError.response?.status}`);
+        console.error(`Response:`, axiosError.response?.data);
         
-        // Log timing information if available
-        if (axiosError.response?.data?.error?.context) {
-          console.error(`  Request Time: ${axiosError.response?.data?.error?.context?.request_time}`);
-          console.error(`  Server Time: ${axiosError.response?.data?.error?.context?.server_time}`);
+        if (axiosError.response?.status === 403 && 
+            typeof axiosError.response.data === 'object' && 
+            axiosError.response.data !== null) {
+          const errorData = axiosError.response.data as any;
+          if (errorData.error?.code === 'ip_not_whitelisted_for_api_key') {
+            // Show a more helpful message when IP is not whitelisted
+            console.error('🛑 Your IP address is not whitelisted for this API key.');
+            console.error(`IP: ${errorData.error?.context?.client_ip || 'Unknown'}`);
+            
+            if (!this.useProxy) {
+              console.error('💡 TIP: Enable proxy mode to solve the IP whitelisting issue.');
+            } else {
+              console.error('💡 TIP: The proxy server may not be running or accessible.');
+            }
+            
+            // Show toast with helpful message
+            toast({
+              title: "IP Not Whitelisted",
+              description: this.useProxy 
+                ? "Proxy failed to connect. Ensure the proxy server is running."
+                : "Your IP is not whitelisted. Try enabling proxy mode in settings.",
+              variant: "destructive",
+            });
+          }
         }
-        
-        // Return empty result for GET requests if they fail
-        if (method.toUpperCase() === 'GET') {
-          console.log('[DeltaExchange] Returning empty result for failed GET request');
-          return { success: false, result: [], message: 'Failed to fetch data' };
-        }
-        
-        throw error;
       }
       throw error;
     }

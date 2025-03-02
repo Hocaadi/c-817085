@@ -1,0 +1,18 @@
+{
+  "name": "delta-exchange-proxy",
+  "version": "1.0.0",
+  "description": "A proxy server for Delta Exchange API to solve IP whitelisting issues",
+  "main": "delta-proxy.js",
+  "scripts": {
+    "start": "node delta-proxy.js",
+    "dev": "nodemon delta-proxy.js"
+  },
+  "dependencies": {
+    "axios": "^1.6.2",
+    "cors": "^2.8.5",
+    "express": "^4.18.2"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  }
+} 
