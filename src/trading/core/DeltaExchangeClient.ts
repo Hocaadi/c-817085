@@ -626,14 +626,26 @@ export class DeltaExchangeClient {
       // Log the successful response
       console.log(`[DeltaExchange] Successfully retrieved ${response.result.length} wallet balances`);
       
-      // Map the data to our expected format
-      return response.result.map((balance: any) => ({
-        currency: balance.currency || 'Unknown',
-        available_balance: balance.available_balance || '0',
-        total_balance: balance.total_balance || '0',
-        locked_balance: balance.locked_balance || '0',
-        status: 'Success'
-      }));
+      // Pass through the complete response data to enable rich UI display
+      // We'll just transform the fields we need for compatibility with existing code
+      return response.result.map((balance: any) => {
+        // Use asset_symbol as the currency identifier if available, otherwise use currency or default to USDT
+        const currency = balance.asset_symbol || balance.currency || 'USDT';
+        
+        // Create a baseline object with our core fields
+        const baseBalance = {
+          currency: currency,
+          available_balance: balance.available_balance || '0',
+          // Use balance field for total_balance if available
+          total_balance: balance.balance || '0',
+          // Use blocked_margin for locked_balance if available
+          locked_balance: balance.blocked_margin || '0',
+          status: 'Success'
+        };
+        
+        // Pass through all original fields without modification to enable rich UI display
+        return { ...balance, ...baseBalance };
+      });
     } catch (error) {
       console.error('[DeltaExchange] Failed to fetch wallet balances:', error);
       
