@@ -9,6 +9,19 @@ declare module 'input-otp' {
     [key: string]: any
   }
 
+  // Define the OTPInput component
+  export interface OTPInputProps {
+    maxLength?: number
+    children: React.ReactNode
+  }
+
+  // Define the OTPInputContext
+  export interface OTPInputContextProps {
+    value: string
+    onChange: (value: string) => void
+    maxLength: number
+  }
+
   // Define the provider props
   export interface InputOTPProviderProps {
     value?: string
@@ -20,8 +33,10 @@ declare module 'input-otp' {
   // Define the provider component
   export function InputOTPProvider(props: InputOTPProviderProps): JSX.Element
 
-  // Export the context for useInputOTPContext
+  // Export components and contexts
   export const InputOTPContext: React.Context<InputOTPContext>
+  export const OTPInput: React.FC<OTPInputProps>
+  export const OTPInputContext: React.Context<OTPInputContextProps>
 
   // Custom hook to use the context
   export function useInputOTPContext(): InputOTPContext

@@ -8,7 +8,7 @@
     "dev": "vite --port 8080",
     "build": "tsc && vite build",
     "build:ignore-ts": "vite build",
-    "build:github": "VITE_SKIP_TS_CHECK=true vite build --mode production",
+    "build:github": "vite build --mode production",
     "preview": "vite preview",
     "predeploy": "npm run build:github",
     "deploy": "gh-pages -d dist --dotfiles true"
