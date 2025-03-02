@@ -434,10 +434,12 @@ export class DeltaExchangeClient {
     }
   }
 
+  // @ts-ignore: Preserved for future use in notification system
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   private async createNotification(title: string, description: string, type: 'success' | 'error' | 'info' = 'info') {
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      const { data, error } = await supabase
+      const { error } = await supabase
         .from('notifications')
         .insert([
           {
