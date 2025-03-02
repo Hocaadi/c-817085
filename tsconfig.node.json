@@ -1,9 +1,12 @@
 {
   "compilerOptions": {
+    "composite": true,
     "target": "ES2022",
     "lib": ["ES2023"],
     "module": "ESNext",
     "skipLibCheck": true,
+    "outDir": "./dist",
+    "declaration": true,
 
     /* Bundler mode */
     "moduleResolution": "bundler",
@@ -11,6 +14,7 @@
     "isolatedModules": true,
     "moduleDetection": "force",
     "noEmit": true,
+    "emitDeclarationOnly": true,
 
     /* Linting */
     "strict": true,
