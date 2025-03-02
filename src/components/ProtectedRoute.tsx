@@ -22,7 +22,8 @@ const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
     return <Navigate to="/c-817085/login" state={{ from: location.pathname }} replace />;
   }
 
-  return <>{children}</>;
+  // Return children directly to preserve context
+  return children;
 };
 
 export default ProtectedRoute; 

@@ -1,5 +1,6 @@
-import { createContext, useContext, ReactNode, useRef } from 'react';
+import { createContext, useContext, ReactNode, useRef, useEffect, useState } from 'react';
 import { DeltaExchangeClient } from '@/trading/core/DeltaExchangeClient';
+import { Loader2 } from 'lucide-react';
 
 const DeltaClientContext = createContext<DeltaExchangeClient | null>(null);
 
@@ -18,11 +19,22 @@ interface DeltaClientProviderProps {
 }
 
 export function DeltaClientProvider({ apiKey, apiSecret, children }: DeltaClientProviderProps) {
-  // Use ref to maintain the same client instance across renders
+  const [isLoading, setIsLoading] = useState(true);
   const clientRef = useRef<DeltaExchangeClient | null>(null);
   
-  if (!clientRef.current) {
-    clientRef.current = new DeltaExchangeClient(apiKey, apiSecret);
+  useEffect(() => {
+    if (!clientRef.current) {
+      clientRef.current = new DeltaExchangeClient(apiKey, apiSecret);
+    }
+    setIsLoading(false);
+  }, [apiKey, apiSecret]);
+  
+  if (isLoading) {
+    return (
+      <div className="min-h-[200px] flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
   }
   
   return (

@@ -14,7 +14,7 @@ import ProtectedRoute from '@/components/ProtectedRoute';
 import { ClerkProvider } from "@clerk/clerk-react";
 import { TradingProvider } from '@/contexts/TradingContext';
 import { ToastProvider } from "@/components/ui/toast";
-import WalletBalancesPage from '@/pages/wallet-balances';
+import WalletBalancesPage from '@/pages/wallet-balances/index';
 
 const clerkPubKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
 

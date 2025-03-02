@@ -10,7 +10,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useDeltaClient } from './DeltaClientProvider';
+import { useDeltaClient } from '@/components/DeltaClientProvider';
 
 interface Balance {
   currency: string;
